@@ -14,6 +14,8 @@ export const panelHtml = `
 		</div>
 	</div>
 
+	<button id="button-locate" class="primary locate" type="button">Aktuellen Standort übernehmen</button>
+
 	<div class="fields">
 		<label for="field-latitude">Breite</label>
 		<input id="field-latitude" type="text" inputmode="decimal" autocomplete="off" placeholder="52.516300">
@@ -36,7 +38,6 @@ export const panelHtml = `
 		<div class="hint" id="paste-hint"></div>
 		<div class="buttons">
 			<button id="button-apply" class="primary" type="button">Übernehmen</button>
-			<button id="button-locate" type="button">Aktueller Standort</button>
 		</div>
 	</div>
 

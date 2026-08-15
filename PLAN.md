@@ -21,26 +21,28 @@ Geobezug nutzbar sind:
 | Laufen Plugins auf Mobile? | Ja, seit Joplin 3.x. Jedes Plugin läuft in einem `iframe` in einer `WebView`. Manifest braucht `"platforms": ["desktop","mobile"]` | [Mobile Plugin Debugging](https://joplinapp.org/help/api/references/mobile_plugin_debugging/), [Manifest](https://joplinapp.org/help/api/references/plugin_manifest/) |
 | Wie sieht man ein Panel auf Mobile? | Panels erscheinen in einem **Tab-Dialog**, der über einen Toolbar-Button im Notiz-Editor geöffnet wird. `panels.show()`/`.visible` verhalten sich anders als auf Desktop | [joplin.views.panels](https://joplinapp.org/api/references/plugin_api/classes/joplinviewspanels.html), [Forum](https://discourse.joplinapp.org/t/plugin-api-what-should-panels-show-and-panels-visible-do-on-mobile/37507) |
 | Gibt es eine Geolocation-API für Plugins? | **Nein.** Laurent (Maintainer) im Forum: *"We don't currently expose this API but a PR would be accepted if you're interested in implementing it."* | [Forum: Geolocation API](https://discourse.joplinapp.org/t/geolocation-api/47854) |
-| Geht `navigator.geolocation` im Plugin-WebView? | **Nein (Android).** `packages/app-mobile/components/ExtendedWebView/index.tsx` setzt die Prop `geolocationEnabled` nicht → react-native-webview blockt per Default. Auf iOS unterstützt WKWebView es ohnehin nicht ohne native Brücke. In der **Web-Version** von Joplin funktioniert es. | Joplin-Quellcode `dev` |
+| Geht `navigator.geolocation` im Plugin-WebView? | **Ja, auf Android bestätigt.** Getestet auf Joplin-Android 3.6.21 (Xperia 5 III, Android 16, WebView Chrome 149): `getCurrentPosition` liefert einen echten Fix. — *Korrektur:* aus `ExtendedWebView/index.tsx` (keine Prop `geolocationEnabled`) hatte ich das Gegenteil geschlossen; das Gerät sagt etwas anderes. iOS ist ungetestet und bleibt fraglich. | Messung am Gerät, 2026-08-15 |
 | Setzt Joplin Geodaten beim Anlegen einer Notiz über die API? | **Nein.** `Note.updateGeolocation()` wird ausschließlich beim ersten Speichern einer *provisorischen* Notiz aus dem Editor-UI aufgerufen (`packages/lib/components/shared/note-screen-shared.ts`), gated durch Setting `trackLocation`. Zusätzlich: 10-Minuten-Cache der letzten Position. | Joplin-Quellcode `dev` |
 | Überschreibt der offene Editor meine per Plugin geschriebenen Koordinaten? | **Nein.** Der Editor speichert nur geänderte Felder (`fields: BaseModel.diffObjectsFields(lastSavedNote, note)`). Lat/Lon sind nicht im Diff. (UI zeigt aber ggf. bis zum Neuladen alte Werte.) | Joplin-Quellcode `dev` |
 | Plugin per Datei auf dem Handy installierbar? | Ja, `PluginUploadButton` im Mobile-Config-Screen → `.jpl` direkt installierbar | Joplin-Quellcode `dev` |
 
 ### Konsequenz für Feature "aktuellen Standort eintragen"
 
-Das ist der einzige Wunsch, der **heute technisch nicht direkt geht**. Vier Wege:
+**Gelöst — `navigator.geolocation` funktioniert im Plugin-Panel auf Android** (am Gerät
+bestätigt, s. o.). Ein Tap auf „Aktuellen Standort übernehmen“ holt einen echten Fix samt
+Genauigkeit und schreibt ihn in die Notiz. Das ist der Hauptweg.
 
-| Weg | Aufwand | Ergebnis |
-|---|---|---|
-| **A — Upstream-PR** an Joplin: `joplin.geolocation.currentPosition()` in der Plugin-API (+ `geolocationEnabled` an der WebView) | hoch (React-Native-Buildumgebung, Review, Release-Vorlauf Monate) | *die* saubere Lösung, nutzt Joplins bestehende Permission-Logik |
-| **B — Einfügen/Parsen** aus anderer App: Standort in OsmAnd/Google Maps teilen → kopieren → im Panel einfügen. Parser für `geo:`-URI, `lat, lon`, DMS, Google-/OSM-Links | niedrig | funktioniert **sofort**, +2 Taps, offline-tauglich |
-| ~~**C — Umweg über neue Notiz**~~ | — | **verworfen.** Praxiserfahrung: in geteilten Notizbüchern trägt Joplin so gut wie nie eine Location ein (vermutlich Timing zwischen Notiz-Anlage und GPS-Fix). Als Fundament unbrauchbar — und genau der Grund für dieses Plugin. |
-| **D — Web-Version** von Joplin im Browser: `navigator.geolocation` geht dort | 0 | nur für Entwicklung/Test relevant |
+Historie der erwogenen Wege, damit die Entscheidung nachvollziehbar bleibt:
 
-**Entscheidung (2026-08-15): Weg B.** Der MVP setzt auf Einfügen+Parsen. Der Standort-Button
-versucht trotzdem `navigator.geolocation` (funktioniert in der Web-Version) und erklärt sonst
-den Einfüge-Weg; die Diagnose zeigt an, ob eine Plugin-Geolocation-API existiert — dann ist
-der Umstieg auf A klein. **A bleibt das Fernziel**, C ist verworfen.
+| Weg | Status |
+|---|---|
+| **A — Upstream-PR** an Joplin (`joplin.geolocation` in der Plugin-API) | **nicht mehr nötig.** Wäre nur der saubere Weg gewesen, wenn der WebView den Zugriff blockte — tut er nicht. |
+| **B — Einfügen/Parsen** aus anderer App (`geo:`-URI, Maps-/OSM-Links, DMS, Dezimalgrad) | **bleibt als Fallback**, und zwar ein nützlicher: wenn kein Fix zu bekommen ist (drinnen, Tunnel) oder wenn die Koordinate zu einem Ort gehört, an dem man gerade nicht steht — beim Reisetagebuch der Normalfall beim Nachpflegen. |
+| ~~**C — Umweg über neue Notiz**~~ | **verworfen.** Praxiserfahrung: in geteilten Notizbüchern trägt Joplin so gut wie nie eine Location ein (vermutlich Timing zwischen Notiz-Anlage und GPS-Fix). Als Fundament unbrauchbar — und genau der Grund für dieses Plugin. |
+| **D — Web-Version** von Joplin im Browser | nur für Entwicklung/Test relevant |
+
+Offen bleibt iOS: dort ist der Zugriff ungetestet und laut WKWebView-Verhalten fraglich.
+Falls das je relevant wird, ist B die Rückfallebene, die dann trägt.
 
 ---
 
@@ -131,9 +133,9 @@ Panel „Geodaten“, geöffnet über den Plugin-Button im Notiz-Editor:
     `52°30'58"N 13°22'40"E`, `google.com/maps/@…`, `openstreetmap.org/#map=…`,
     `maps.app.goo.gl`-Kurzlinks (nur online auflösbar) frisst
   - Buttons: **Löschen** (auf 0/0), **Lat/Lon tauschen**, **Von anderer Notiz übernehmen**
-  - **Aktueller Standort**: Provider-Kette (siehe 2.) — auf Mobile heute ohne Quelle, der
-    Button wird deshalb mit Erklärung deaktiviert statt still zu scheitern; das Einfügefeld
-    ist der reguläre Weg
+  - **Aktueller Standort**: ein Tap, holt den Fix per `navigator.geolocation`
+    (`enableHighAccuracy`), schreibt ihn samt Höhe in die Notiz und meldet die Genauigkeit;
+    scheitert die Abfrage, verweist die Meldung auf das Einfügefeld
 - **Karte (optional, nur online):** kleine Leaflet-Karte, Pin verschiebbar → setzt Koordinaten
 
 *Deliverable: installierbares `.jpl`, das den Hauptwunsch erfüllt.*
@@ -173,20 +175,23 @@ Offen: Karte im Panel, „Von anderer Notiz übernehmen", Umschalter Dezimal/DMS
   Fallbacks: (a) Bild als `data:`-URL direkt in die Notiz, (b) Live-Rendering statt Bild
   (für ein Tagebuch meist ausreichend), (c) Bildexport nur auf Desktop.
 
-### Phase A (parallel, optional) — Upstream-PR an Joplin
+### ~~Phase A — Upstream-PR an Joplin~~ (entfallen)
 
-`joplin.geolocation.currentPosition()` in der Plugin-API + `geolocationEnabled` an der
-Plugin-WebView, gestützt auf das vorhandene `shim.Geolocation` und die bestehende
-`trackLocation`-Permission-Logik. Vom Maintainer explizit erwünscht. Macht Weg B/C
-langfristig überflüssig.
+Sollte `joplin.geolocation.currentPosition()` in der Plugin-API nachrüsten. Hinfällig, weil
+`navigator.geolocation` im Panel-WebView bereits funktioniert. Bliebe nur relevant, falls
+iOS-Unterstützung dazukommen soll oder eine Joplin-Version den Zugriff wieder zumacht.
 
 ---
 
 ## 5. Risiken / offene Punkte
 
-- **GPS aus dem Plugin** — gelöst nur über Upstream-PR (siehe oben). Größtes Risiko fürs Erlebnis.
-- **CSP im Plugin-WebView** — falls externe Kacheln blockiert sind, entfällt die Karte im Panel;
-  numerische Bearbeitung bleibt davon unberührt (in Phase 0 klären).
+- ~~**GPS aus dem Plugin**~~ — erledigt, funktioniert auf Android direkt. Restrisiko: Joplin
+  oder Android könnten den Zugriff in einer künftigen Version wieder schließen; deshalb
+  bleibt der Einfüge-Weg als vollwertige Alternative erhalten und wird nicht wegoptimiert.
+- ~~**CSP im Plugin-WebView**~~ — erledigt, Kacheln und `fetch` sind nicht blockiert.
+- **Theme-Variablen** — Joplins `--joplin-*`-Paare nicht mischen: Vorder- und Hintergrundfarbe
+  müssen aus demselben Farbschema stammen, sonst entsteht im Dark-Theme Unlesbares
+  (passiert mit `colorCorrect` auf `color4`).
 - **Mobile-API-Lücken** — Menüpunkte/Toolbar-Buttons evtl. nicht überall verfügbar; Fallback ist
   immer das Panel.
 - **Nominatim** — Nutzungsbedingungen (max. 1 req/s, aussagekräftiger User-Agent), daher

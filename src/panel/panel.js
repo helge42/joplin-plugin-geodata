@@ -121,17 +121,25 @@
 		void sendAndRender({ type: 'clear' });
 	});
 
-	// The device GPS is not reachable from a plugin on mobile (see PLAN.md). We still try,
-	// because it works in the web version and may work once Joplin exposes an API.
+	// Confirmed working on Joplin-Android 3.6.21: the plugin webview does reach the device
+	// GPS. The paste field stays as the fallback for when there is no fix (indoors, tunnel)
+	// or when the position belongs to a place the user is not standing at right now.
 	$('button-locate').addEventListener('click', () => {
+		const button = $('button-locate');
 		if (!navigator.geolocation) {
-			setMessage('Kein Standortzugriff in diesem Plugin-Fenster. Standort in der Karten-App teilen und oben einfügen.', 'error');
+			setMessage('Kein Standortzugriff in diesem Plugin-Fenster. Standort in der Karten-App teilen und unten einfügen.', 'error');
 			return;
 		}
 
-		setMessage('Standort wird ermittelt …', '');
+		const label = button.textContent;
+		const restore = () => { button.disabled = false; button.textContent = label; };
+		button.disabled = true;
+		button.textContent = 'Standort wird ermittelt …';
+		setMessage('', '');
+
 		navigator.geolocation.getCurrentPosition(
 			(position) => {
+				restore();
 				void sendAndRender({
 					type: 'setCoordinates',
 					latitude: position.coords.latitude,
@@ -141,9 +149,10 @@
 				});
 			},
 			(error) => {
-				setMessage(`Standort nicht verfügbar (${error.message}). Standort in der Karten-App teilen und oben einfügen.`, 'error');
+				restore();
+				setMessage(`Standort nicht verfügbar (${error.message || `Code ${error.code}`}). Alternativ unten einfügen.`, 'error');
 			},
-			{ enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
+			{ enableHighAccuracy: true, timeout: 20000, maximumAge: 30000 },
 		);
 	});
 

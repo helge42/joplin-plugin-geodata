@@ -74,7 +74,7 @@ input {
 	font-size: 1em;
 	font-family: inherit;
 	color: var(--joplin-color, #222);
-	background-color: var(--joplin-background-color5, var(--joplin-background-color, #fff));
+	background-color: var(--joplin-background-color, #fff);
 	border: 1px solid var(--joplin-divider-color, #c4c4c4);
 	border-radius: 6px;
 }
@@ -104,10 +104,26 @@ button {
 	cursor: pointer;
 }
 
+/* Joplin's colour scheme 4 is a background/foreground *pair* meant for accented
+   buttons - #ffffff with #2D5BE5 text in the light theme, #1D2024 with #789FE9 in the
+   dark one. Taking only half of it (say, colorCorrect on backgroundColor4) produces
+   light green on light blue in dark mode. */
 button.primary {
-	color: var(--joplin-color-correct, #fff);
-	background-color: var(--joplin-color4, #155bd4);
-	border-color: var(--joplin-color4, #155bd4);
+	color: var(--joplin-color4, #2d5be5);
+	background-color: var(--joplin-background-color4, #fff);
+	border-color: var(--joplin-color4, #2d5be5);
+	border-width: 2px;
+	font-weight: 600;
+}
+
+button.locate {
+	flex: 1 1 100%;
+	min-height: 48px;
+	margin-bottom: 12px;
+}
+
+button:disabled {
+	opacity: 0.6;
 }
 
 button.danger {
