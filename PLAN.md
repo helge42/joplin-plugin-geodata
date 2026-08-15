@@ -105,14 +105,19 @@ kein Clipboard-Zugriff → das Einfügefeld ist ohnehin der richtige Weg;
 `imaging`/`fs` desktop-only → Bild-Export in Phase 4 ist auf Mobile nur über den
 `data:`-URL-Umweg denkbar.
 
-- [ ] **Am Gerät zu prüfen** (Diagnose-Bereich im Panel erledigt das per Knopfdruck):
-  - Panel-Button im Editor sichtbar? Panelgröße/Scrollen brauchbar?
-  - Lädt das Panel-WebView **externe URLs** (OSM-Kachel, Nominatim `fetch`) — oder blockt eine CSP?
-  - `navigator.geolocation` — Verhalten (erwartet: fehlt oder Timeout)
-  - Öffnen `geo:`- und `https:`-Links aus dem Panel die jeweilige App?
-  - Bleibt ein per `data.put` geschriebener Lat/Lon-Wert erhalten, während die Notiz offen ist?
-
-*Das Kachel-Ergebnis entscheidet über die Karte im Panel (Phase 1) und Phase 4.*
+- [x] **Am Gerät geprüft** — Joplin-Android 3.6.21, Xperia 5 III, Android 16,
+      WebView Chrome 149 (Diagnose-Bereich im Panel):
+  - Panel und Panel-Button funktionieren
+  - **OSM-Kachel lädt (256×256), `fetch` auf Nominatim liefert 200** — keine CSP-Sperre.
+    Damit sind Karte im Panel, Reverse-Geocoding und GPX-Rendering technisch frei.
+  - `isSecureContext: true`
+- [ ] Offen: taugt `navigator.geolocation` wirklich etwas? Die erste Messung prüfte nur die
+      Existenz des Objekts (in Androids WebView auch bei abgeschaltetem Zugriff vorhanden)
+      und `!!joplin.geolocation`, was der Sandbox-Proxy immer mit „wahr“ beantwortet.
+      Beides ist ersetzt durch eine echte `getCurrentPosition`-Abfrage und eine
+      Kontrollprobe auf eine erfundene API.
+- [ ] Offen: Öffnen `geo:`- und `https:`-Links aus dem Panel die jeweilige App?
+- [ ] Offen: Bleibt ein per `data.put` geschriebener Wert stehen, während die Notiz offen ist?
 
 ### Phase 1 — MVP: Geodaten ansehen & bearbeiten (Kernziel)
 
