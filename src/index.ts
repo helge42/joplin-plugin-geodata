@@ -151,11 +151,19 @@ joplin.plugins.register({
 
 				case 'diagnostics': {
 					const version = await joplin.versionInfo();
+
+					// The plugin API is a sandbox proxy that answers *any* property access with
+					// another proxy, so a truthy `joplin.geolocation` proves nothing. The control
+					// probe below asks for an API that certainly does not exist: if it is also
+					// "present", both answers are worthless.
+					const geolocationApi = !!(joplin as any).geolocation;
+					const controlProbe = !!(joplin as any).thisApiDoesNotExist;
+
 					return {
 						version: version.version,
 						platform: version.platform,
-						// Present only where Joplin gained a geolocation API - see PLAN.md, Phase A.
-						geolocationApi: !!(joplin as any).geolocation,
+						geolocationApi,
+						controlProbe,
 					};
 				}
 

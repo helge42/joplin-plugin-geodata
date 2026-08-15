@@ -157,15 +157,38 @@
 		image.src = url;
 	});
 
+	// The only meaningful test of the device GPS: actually ask for a fix and report what
+	// comes back. The mere existence of navigator.geolocation says nothing - Android's
+	// WebView exposes the object even when geolocation is switched off for the view.
+	const errorNames = ['', 'PERMISSION_DENIED', 'POSITION_UNAVAILABLE', 'TIMEOUT'];
+	const probeGeolocation = () => new Promise((resolve) => {
+		if (!navigator.geolocation) return resolve('navigator.geolocation fehlt');
+
+		const timer = setTimeout(() => resolve('keine Antwort nach 20 s (Callback kam nie)'), 20000);
+		navigator.geolocation.getCurrentPosition(
+			(position) => {
+				clearTimeout(timer);
+				resolve(`FIX: ${position.coords.latitude.toFixed(5)}, ${position.coords.longitude.toFixed(5)} (±${Math.round(position.coords.accuracy)} m)`);
+			},
+			(error) => {
+				clearTimeout(timer);
+				resolve(`Fehler ${error.code} ${errorNames[error.code] || '?'}: ${error.message || '(ohne Meldung)'}`);
+			},
+			{ enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+		);
+	});
+
 	$('button-probe').addEventListener('click', async () => {
 		const output = $('probe-output');
-		output.textContent = 'Prüfe …';
+		output.textContent = 'Prüfe … (Standortabfrage kann 20 s dauern)';
 
 		const info = await webviewApi.postMessage({ type: 'diagnostics' });
 		const lines = [
 			`Joplin: ${info.version} (${info.platform})`,
-			`Plugin-Geolocation-API: ${info.geolocationApi ? 'vorhanden' : 'nicht vorhanden'}`,
-			`navigator.geolocation: ${navigator.geolocation ? 'vorhanden' : 'fehlt'}`,
+			`joplin.geolocation: ${info.geolocationApi ? 'wahr' : 'falsch'}`,
+			`Kontrollprobe (frei erfundene API): ${info.controlProbe ? 'wahr -> beide Werte aussagelos' : 'falsch -> Test aussagekräftig'}`,
+			`navigator.geolocation vorhanden: ${!!navigator.geolocation}`,
+			`Standortabfrage: ${await probeGeolocation()}`,
 			`isSecureContext: ${window.isSecureContext}`,
 			`OSM-Kachel: ${await probeImage('https://tile.openstreetmap.org/0/0/0.png')}`,
 		];
