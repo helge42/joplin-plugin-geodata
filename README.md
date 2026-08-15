@@ -34,17 +34,20 @@ dauerhaft ohne Ort.
 
 ## Installation
 
-Fertiges `.jpl` aus `publish/` bauen und installieren:
-
-```bash
-npm install
-npm run dist
-```
+**Fertige Datei:** [neueste Version herunterladen](https://github.com/helge42/joplin-plugin-geodata/releases/latest)
+(`io.github.helge42.geodata.jpl`).
 
 Auf dem Handy: Einstellungen → Plugins → aus Datei installieren.
 Auf dem Desktop: Werkzeuge → Optionen → Plugins → aus Datei installieren.
 
 Benötigt Joplin 3.6 oder neuer, Desktop und Mobile.
+
+**Selbst bauen:**
+
+```bash
+npm install
+npm run dist   # erzeugt publish/io.github.helge42.geodata.jpl
+```
 
 ## Entwicklung
 
