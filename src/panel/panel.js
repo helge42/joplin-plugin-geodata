@@ -1,0 +1,194 @@
+/* Panel webview. Deliberately dumb: parsing, validation and storage all happen in the
+   plugin process, this file only renders state and forwards intent. */
+
+(() => {
+	const $ = (id) => document.getElementById(id);
+
+	const fields = {
+		latitude: $('field-latitude'),
+		longitude: $('field-longitude'),
+		altitude: $('field-altitude'),
+	};
+
+	let state = null;
+	// While the user is editing we do not let background updates overwrite the fields.
+	let dirty = false;
+	let clearArmed = false;
+
+	const setMessage = (text, kind) => {
+		const element = $('message');
+		element.textContent = text || '';
+		element.className = `message ${kind || ''}`;
+	};
+
+	const render = (next) => {
+		state = next;
+
+		$('note-title').textContent = next.noteTitle || 'Keine Notiz ausgewählt';
+		$('status').textContent = next.hasCoordinates
+			? `${next.latitude}, ${next.longitude}`
+			: 'Keine Geodaten hinterlegt';
+		$('status').classList.toggle('empty', !next.hasCoordinates);
+
+		$('readout').hidden = !next.hasCoordinates;
+		$('readout-dms').textContent = next.dms || '';
+		$('link-osm').href = next.osmUrl || '#';
+		$('link-geo').href = next.geoUri || '#';
+
+		fields.latitude.value = next.latitude;
+		fields.longitude.value = next.longitude;
+		fields.altitude.value = next.altitude;
+
+		setMessage(next.message, next.messageKind);
+		dirty = false;
+		disarmClear();
+	};
+
+	const send = async (message) => {
+		return webviewApi.postMessage({ ...message, noteId: state ? state.noteId : '' });
+	};
+
+	const sendAndRender = async (message) => {
+		const response = await send(message);
+		if (response && 'noteId' in response) render(response);
+		return response;
+	};
+
+	const disarmClear = () => {
+		clearArmed = false;
+		$('button-clear').textContent = 'Löschen';
+		$('button-clear').classList.remove('danger');
+	};
+
+	// --- events -------------------------------------------------------------
+
+	for (const field of Object.values(fields)) {
+		field.addEventListener('input', () => { dirty = true; });
+	}
+
+	$('button-save').addEventListener('click', () => {
+		void sendAndRender({
+			type: 'save',
+			latitude: fields.latitude.value,
+			longitude: fields.longitude.value,
+			altitude: fields.altitude.value,
+		});
+	});
+
+	$('button-reset').addEventListener('click', () => {
+		void sendAndRender({ type: 'getState' });
+	});
+
+	$('button-apply').addEventListener('click', async () => {
+		const response = await sendAndRender({ type: 'apply', text: $('field-paste').value });
+		if (response && response.messageKind === 'ok') {
+			$('field-paste').value = '';
+			$('paste-hint').textContent = '';
+		}
+	});
+
+	let previewTimer = null;
+	$('field-paste').addEventListener('input', () => {
+		if (previewTimer) clearTimeout(previewTimer);
+		previewTimer = setTimeout(async () => {
+			const text = $('field-paste').value;
+			if (!text.trim()) {
+				$('paste-hint').textContent = '';
+				return;
+			}
+			const result = await send({ type: 'preview', text });
+			$('paste-hint').textContent = result ? result.hint : '';
+			$('paste-hint').classList.toggle('error', !!result && !result.ok);
+		}, 250);
+	});
+
+	$('button-swap').addEventListener('click', () => {
+		const latitude = fields.latitude.value;
+		fields.latitude.value = fields.longitude.value;
+		fields.longitude.value = latitude;
+		dirty = true;
+		setMessage('Getauscht - zum Übernehmen speichern.', '');
+	});
+
+	$('button-clear').addEventListener('click', () => {
+		if (!clearArmed) {
+			clearArmed = true;
+			$('button-clear').textContent = 'Wirklich löschen?';
+			$('button-clear').classList.add('danger');
+			setTimeout(disarmClear, 4000);
+			return;
+		}
+		void sendAndRender({ type: 'clear' });
+	});
+
+	// The device GPS is not reachable from a plugin on mobile (see PLAN.md). We still try,
+	// because it works in the web version and may work once Joplin exposes an API.
+	$('button-locate').addEventListener('click', () => {
+		if (!navigator.geolocation) {
+			setMessage('Kein Standortzugriff in diesem Plugin-Fenster. Standort in der Karten-App teilen und oben einfügen.', 'error');
+			return;
+		}
+
+		setMessage('Standort wird ermittelt …', '');
+		navigator.geolocation.getCurrentPosition(
+			(position) => {
+				void sendAndRender({
+					type: 'setCoordinates',
+					latitude: position.coords.latitude,
+					longitude: position.coords.longitude,
+					altitude: position.coords.altitude,
+					note: `Standort übernommen (±${Math.round(position.coords.accuracy)} m).`,
+				});
+			},
+			(error) => {
+				setMessage(`Standort nicht verfügbar (${error.message}). Standort in der Karten-App teilen und oben einfügen.`, 'error');
+			},
+			{ enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
+		);
+	});
+
+	// --- diagnostics (Phase 0) ----------------------------------------------
+
+	const probeImage = (url) => new Promise((resolve) => {
+		const image = new Image();
+		const timer = setTimeout(() => resolve('Zeitüberschreitung'), 8000);
+		image.onload = () => { clearTimeout(timer); resolve(`ok (${image.width}x${image.height})`); };
+		image.onerror = () => { clearTimeout(timer); resolve('blockiert/fehlgeschlagen'); };
+		image.src = url;
+	});
+
+	$('button-probe').addEventListener('click', async () => {
+		const output = $('probe-output');
+		output.textContent = 'Prüfe …';
+
+		const info = await webviewApi.postMessage({ type: 'diagnostics' });
+		const lines = [
+			`Joplin: ${info.version} (${info.platform})`,
+			`Plugin-Geolocation-API: ${info.geolocationApi ? 'vorhanden' : 'nicht vorhanden'}`,
+			`navigator.geolocation: ${navigator.geolocation ? 'vorhanden' : 'fehlt'}`,
+			`isSecureContext: ${window.isSecureContext}`,
+			`OSM-Kachel: ${await probeImage('https://tile.openstreetmap.org/0/0/0.png')}`,
+		];
+
+		try {
+			const response = await fetch('https://nominatim.openstreetmap.org/status.php?format=json');
+			lines.push(`fetch (Nominatim): ${response.status}`);
+		} catch (error) {
+			lines.push(`fetch (Nominatim): blockiert (${error.message})`);
+		}
+
+		lines.push(`User-Agent: ${navigator.userAgent}`);
+		output.textContent = lines.join('\n');
+	});
+
+	// --- wiring -------------------------------------------------------------
+
+	webviewApi.onMessage((event) => {
+		const message = event && event.message ? event.message : event;
+		if (!message || message.type !== 'state') return;
+		if (dirty) return;
+		render(message.state);
+	});
+
+	void sendAndRender({ type: 'getState' });
+})();

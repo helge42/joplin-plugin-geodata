@@ -1,0 +1,184 @@
+/* Joplin injects its theme as CSS variables into panel webviews, so the panel follows
+   light/dark mode and the user's font size. Sizing targets touch input on mobile. */
+
+.geodata {
+	box-sizing: border-box;
+	padding: 12px;
+	font-family: var(--joplin-font-family, sans-serif);
+	font-size: var(--joplin-font-size, 14px);
+	color: var(--joplin-color, #222);
+	background-color: var(--joplin-background-color, #fff);
+}
+
+.geodata * {
+	box-sizing: border-box;
+}
+
+.note-title {
+	font-weight: 600;
+	opacity: 0.75;
+	margin-bottom: 6px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.status {
+	font-size: 1.25em;
+	font-variant-numeric: tabular-nums;
+	margin-bottom: 4px;
+}
+
+.status.empty {
+	font-size: 1em;
+	opacity: 0.6;
+}
+
+.readout {
+	margin-bottom: 12px;
+}
+
+.readout-line {
+	opacity: 0.75;
+	font-variant-numeric: tabular-nums;
+}
+
+.links {
+	margin-top: 6px;
+	display: flex;
+	gap: 16px;
+}
+
+.links a {
+	color: var(--joplin-url-color, #155bd4);
+	text-decoration: none;
+	padding: 4px 0;
+}
+
+.fields {
+	display: grid;
+	grid-template-columns: minmax(70px, auto) 1fr;
+	gap: 8px;
+	align-items: center;
+	margin-bottom: 12px;
+}
+
+label {
+	opacity: 0.8;
+}
+
+input {
+	width: 100%;
+	min-height: 40px;
+	padding: 8px;
+	font-size: 1em;
+	font-family: inherit;
+	color: var(--joplin-color, #222);
+	background-color: var(--joplin-background-color5, var(--joplin-background-color, #fff));
+	border: 1px solid var(--joplin-divider-color, #c4c4c4);
+	border-radius: 6px;
+}
+
+input:focus {
+	outline: 2px solid var(--joplin-color4, #155bd4);
+	outline-offset: -1px;
+}
+
+.buttons {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 12px;
+}
+
+button {
+	flex: 1 1 auto;
+	min-height: 44px;
+	padding: 8px 12px;
+	font-size: 1em;
+	font-family: inherit;
+	color: var(--joplin-color, #222);
+	background-color: var(--joplin-background-color3, #f4f4f4);
+	border: 1px solid var(--joplin-divider-color, #c4c4c4);
+	border-radius: 6px;
+	cursor: pointer;
+}
+
+button.primary {
+	color: var(--joplin-color-correct, #fff);
+	background-color: var(--joplin-color4, #155bd4);
+	border-color: var(--joplin-color4, #155bd4);
+}
+
+button.danger {
+	border-color: var(--joplin-color-error, #c04949);
+	color: var(--joplin-color-error, #c04949);
+}
+
+.section {
+	margin-top: 4px;
+	padding-top: 12px;
+	border-top: 1px solid var(--joplin-divider-color, #ddd);
+}
+
+.section label {
+	display: block;
+	margin-bottom: 6px;
+}
+
+.section input {
+	margin-bottom: 6px;
+}
+
+.secondary-row button {
+	font-size: 0.9em;
+	min-height: 38px;
+}
+
+.hint {
+	min-height: 1.2em;
+	margin-bottom: 8px;
+	opacity: 0.75;
+	font-size: 0.9em;
+	word-break: break-word;
+}
+
+.hint.error,
+.message.error {
+	color: var(--joplin-color-error, #c04949);
+	opacity: 1;
+}
+
+.message {
+	min-height: 1.2em;
+	font-size: 0.9em;
+	word-break: break-word;
+}
+
+.message.ok {
+	color: var(--joplin-color-correct, #2a7d2e);
+}
+
+.diagnostics {
+	margin-top: 16px;
+	padding-top: 8px;
+	border-top: 1px solid var(--joplin-divider-color, #ddd);
+	opacity: 0.85;
+	font-size: 0.9em;
+}
+
+.diagnostics summary {
+	cursor: pointer;
+	padding: 6px 0;
+}
+
+.diagnostics button {
+	margin: 8px 0;
+}
+
+#probe-output {
+	white-space: pre-wrap;
+	word-break: break-all;
+	font-size: 0.85em;
+	margin: 0;
+}
