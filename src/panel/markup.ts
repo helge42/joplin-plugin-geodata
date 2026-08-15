@@ -14,6 +14,14 @@ export const panelHtml = `
 		</div>
 	</div>
 
+	<div class="map-block">
+		<div class="map-header">
+			<button id="button-map-toggle" class="link-button" type="button">Karte ausblenden</button>
+		</div>
+		<div id="map" class="map"></div>
+		<div class="hint" id="map-hint"></div>
+	</div>
+
 	<button id="button-locate" class="primary locate" type="button">Aktuellen Standort übernehmen</button>
 
 	<div class="fields">

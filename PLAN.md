@@ -141,10 +141,18 @@ Panel „Geodaten“, geöffnet über den Plugin-Button im Notiz-Editor:
 *Deliverable: installierbares `.jpl`, das den Hauptwunsch erfüllt.*
 
 **Stand 2026-08-15:** Anzeige (dezimal + DMS), Bearbeiten der drei Felder mit Validierung,
-Einfügen+Erkennen mit Live-Vorschau, Tauschen, Löschen (mit Bestätigungs-Tap), Links zu OSM
-und Karten-App sowie der Diagnose-Bereich sind implementiert; getestet ist bisher nur der
-Parser (`npm test`), das Übrige braucht das Gerät.
-Offen: Karte im Panel, „Von anderer Notiz übernehmen", Umschalter Dezimal/DMS.
+Einfügen+Erkennen mit Live-Vorschau, aktueller Standort per Tap, Tauschen, Löschen (mit
+Bestätigungs-Tap), Links zu OSM und Karten-App, Diagnose-Bereich — alles am Gerät bestätigt.
+
+Dazu die **Karte**: Leaflet 1.9.4 wird aus `node_modules` nach `src/panel/vendor/` kopiert
+(`npm run vendor`, hängt am `dist`-Skript) und ist damit im `.jpl` enthalten — nur die
+Kacheln brauchen Netz. Tap oder Pin-Ziehen setzt die Koordinaten in die Felder, gespeichert
+wird weiterhin erst auf Knopfdruck. Der Kartenausschnitt springt nur beim Notizwechsel,
+damit eigenes Zoomen nicht bei jedem Speichern verlorengeht. Häufen sich `tileerror`s,
+erscheint ein Offline-Hinweis. Abschaltbar über die Einstellung `showMap`.
+Der Pin ist bewusst CSS statt Leaflets Standard-Icon, das PNGs nachladen würde.
+
+Offen: „Von anderer Notiz übernehmen", Umschalter Dezimal/DMS.
 
 ### Phase 2 — Standort in die Notiz einfügen
 

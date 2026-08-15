@@ -55,6 +55,70 @@
 	padding: 4px 0;
 }
 
+/* --- map --------------------------------------------------------------- */
+
+.map-block {
+	margin-bottom: 12px;
+}
+
+.map-header {
+	display: flex;
+	justify-content: flex-end;
+}
+
+.link-button {
+	flex: 0 0 auto;
+	min-height: 32px;
+	padding: 4px 0;
+	background: none;
+	border: none;
+	color: var(--joplin-url-color, #155bd4);
+	font-size: 0.9em;
+}
+
+.map {
+	height: 220px;
+	border-radius: 6px;
+	border: 1px solid var(--joplin-divider-color, #c4c4c4);
+	/* Leaflet's own background shows through where tiles are missing; without this it is
+	   pure white and looks broken in the dark theme. */
+	background-color: var(--joplin-background-color3, #f4f4f4);
+}
+
+/* Own marker, drawn in CSS - Leaflet's default icon would need PNGs next to the
+   stylesheet, and the panel has to work offline. */
+.map-pin {
+	width: 24px;
+	height: 24px;
+}
+
+.map-pin::after {
+	content: '';
+	position: absolute;
+	left: 5px;
+	top: 0;
+	width: 14px;
+	height: 14px;
+	border: 3px solid var(--joplin-color4, #2d5be5);
+	border-radius: 50% 50% 50% 0;
+	transform: rotate(-45deg);
+	background-color: var(--joplin-background-color, #fff);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* Leaflet's controls are sized for a mouse; on a phone they are fiddly. */
+.leaflet-control-zoom a {
+	width: 32px !important;
+	height: 32px !important;
+	line-height: 32px !important;
+	font-size: 20px !important;
+}
+
+.leaflet-container {
+	font-family: inherit;
+	font-size: 0.85em;
+}
+
 .fields {
 	display: grid;
 	grid-template-columns: minmax(70px, auto) 1fr;

@@ -1,5 +1,5 @@
 import joplin from 'api';
-import { ToolbarButtonLocation } from 'api/types';
+import { SettingItemType, ToolbarButtonLocation } from 'api/types';
 import { panelHtml } from './panel/markup';
 import { parseLocation } from './location/parse';
 import { Coordinates, isEmpty, isValidLatitude, isValidLongitude } from './location/types';
@@ -77,8 +77,27 @@ const requireNote = async (noteId: string) => {
 
 joplin.plugins.register({
 	onStart: async function() {
+		await joplin.settings.registerSection('geodata', {
+			label: 'Geodaten',
+			description: 'Anzeige und Bearbeitung der Koordinaten einer Notiz.',
+		});
+
+		await joplin.settings.registerSettings({
+			showMap: {
+				section: 'geodata',
+				public: true,
+				type: SettingItemType.Bool,
+				value: true,
+				label: 'Karte im Panel anzeigen',
+				description: 'Die Karte lädt Kacheln von OpenStreetMap. Ohne Karte funktioniert das Panel unverändert, nur ohne Kartendarstellung.',
+			},
+		});
+
 		const panel = await joplin.views.panels.create('geodata.panel');
 		await joplin.views.panels.setHtml(panel, panelHtml);
+		// Leaflet first: panel.js expects window.L to exist when it initialises the map.
+		await joplin.views.panels.addScript(panel, './panel/vendor/leaflet.css');
+		await joplin.views.panels.addScript(panel, './panel/vendor/leaflet.js');
 		await joplin.views.panels.addScript(panel, './panel/panel.css');
 		await joplin.views.panels.addScript(panel, './panel/panel.js');
 
@@ -148,6 +167,13 @@ joplin.plugins.register({
 					await writeCoordinates(noteId, { latitude: 0, longitude: 0, altitude: 0 });
 					return await buildState(noteId, 'Geodaten gelöscht.', 'ok');
 				}
+
+				case 'getSettings':
+					return { showMap: await joplin.settings.value('showMap') };
+
+				case 'setShowMap':
+					await joplin.settings.setValue('showMap', !!message.value);
+					return { showMap: !!message.value };
 
 				case 'diagnostics': {
 					const version = await joplin.versionInfo();

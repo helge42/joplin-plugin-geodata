@@ -21,6 +21,124 @@
 		element.className = `message ${kind || ''}`;
 	};
 
+	// --- map ----------------------------------------------------------------
+
+	const DEFAULT_ZOOM = 15;
+	let map = null;
+	let marker = null;
+	let tileErrors = 0;
+	let mapVisible = true;
+	let mapNoteId = '';
+
+	const setMapHint = (text) => { $('map-hint').textContent = text || ''; };
+
+	// A CSS pin instead of Leaflet's default icon: that one loads PNGs relative to the
+	// stylesheet, which we would have to ship as well - and it must not break offline.
+	const pinIcon = () => window.L.divIcon({
+		className: 'map-pin',
+		iconSize: [24, 24],
+		iconAnchor: [12, 24],
+	});
+
+	const setFromMap = (latlng) => {
+		fields.latitude.value = latlng.lat.toFixed(6);
+		fields.longitude.value = latlng.lng.toFixed(6);
+		dirty = true;
+		placeMarker(latlng.lat, latlng.lng);
+		setMessage('Position gewählt - zum Übernehmen speichern.', '');
+	};
+
+	function placeMarker(latitude, longitude) {
+		if (!map) return;
+		const position = [latitude, longitude];
+		if (marker) {
+			marker.setLatLng(position);
+		} else {
+			marker = window.L.marker(position, { icon: pinIcon(), draggable: true });
+			marker.on('dragend', () => setFromMap(marker.getLatLng()));
+			marker.addTo(map);
+		}
+	}
+
+	const ensureMap = () => {
+		if (map) return map;
+		if (!window.L) {
+			setMapHint('Kartenbibliothek nicht geladen.');
+			return null;
+		}
+
+		map = window.L.map('map', { attributionControl: true });
+		map.setView([20, 0], 1);
+
+		const tiles = window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+			maxZoom: 19,
+			attribution: '&copy; OpenStreetMap',
+		});
+		tiles.on('tileerror', () => {
+			tileErrors += 1;
+			// A single failure is normal at the edges of the viewport; a run of them means
+			// there is no network. Editing keeps working either way.
+			if (tileErrors > 4) setMapHint('Keine Kartenkacheln - offline? Bearbeiten und Speichern geht trotzdem.');
+		});
+		tiles.on('tileload', () => { tileErrors = 0; setMapHint(''); });
+		tiles.addTo(map);
+
+		map.on('click', (event) => setFromMap(event.latlng));
+		return map;
+	};
+
+	const updateMap = (next) => {
+		if (!mapVisible) return;
+		if (!ensureMap()) return;
+
+		// Leaflet measures the container on creation; if it was hidden then, it needs a nudge.
+		setTimeout(() => map.invalidateSize(), 0);
+
+		if (!next.hasCoordinates) {
+			if (marker) { marker.remove(); marker = null; }
+			mapNoteId = next.noteId;
+			return;
+		}
+
+		const latitude = Number(next.latitude);
+		const longitude = Number(next.longitude);
+		placeMarker(latitude, longitude);
+
+		// Only jump the view when a different note is shown - otherwise the user's own
+		// panning and zooming would be undone on every save.
+		if (mapNoteId !== next.noteId) {
+			map.setView([latitude, longitude], DEFAULT_ZOOM);
+			mapNoteId = next.noteId;
+		}
+	};
+
+	const setMapVisible = (visible, persist) => {
+		mapVisible = visible;
+		$('map').style.display = visible ? '' : 'none';
+		$('button-map-toggle').textContent = visible ? 'Karte ausblenden' : 'Karte anzeigen';
+		if (!visible) setMapHint('');
+		if (visible && state) updateMap(state);
+		if (persist) void webviewApi.postMessage({ type: 'setShowMap', value: visible });
+	};
+
+	$('button-map-toggle').addEventListener('click', () => setMapVisible(!mapVisible, true));
+
+	// Typing coordinates by hand should move the pin too.
+	let fieldMapTimer = null;
+	const syncMapFromFields = () => {
+		if (fieldMapTimer) clearTimeout(fieldMapTimer);
+		fieldMapTimer = setTimeout(() => {
+			if (!map || !mapVisible) return;
+			const latitude = Number(fields.latitude.value.replace(',', '.'));
+			const longitude = Number(fields.longitude.value.replace(',', '.'));
+			if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+			if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return;
+			placeMarker(latitude, longitude);
+		}, 400);
+	};
+
+	// --- rendering ----------------------------------------------------------
+
 	const render = (next) => {
 		state = next;
 
@@ -42,6 +160,7 @@
 		setMessage(next.message, next.messageKind);
 		dirty = false;
 		disarmClear();
+		updateMap(next);
 	};
 
 	const send = async (message) => {
@@ -65,6 +184,8 @@
 	for (const field of Object.values(fields)) {
 		field.addEventListener('input', () => { dirty = true; });
 	}
+	fields.latitude.addEventListener('input', syncMapFromFields);
+	fields.longitude.addEventListener('input', syncMapFromFields);
 
 	$('button-save').addEventListener('click', () => {
 		void sendAndRender({
@@ -222,5 +343,9 @@
 		render(message.state);
 	});
 
-	void sendAndRender({ type: 'getState' });
+	void (async () => {
+		const settings = await webviewApi.postMessage({ type: 'getSettings' });
+		setMapVisible(!settings || settings.showMap !== false, false);
+		await sendAndRender({ type: 'getState' });
+	})();
 })();

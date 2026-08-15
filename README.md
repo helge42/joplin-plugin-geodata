@@ -14,6 +14,10 @@ dauerhaft ohne Ort.
   OpenStreetMap und zur Karten-App des Geräts (`geo:`-URI)
 - **Aktuellen Standort übernehmen** — ein Tap, schreibt Position und Höhe in die Notiz und
   meldet die Genauigkeit
+- **Karte** (OpenStreetMap): zeigt die Position der Notiz, ein Tap oder das Ziehen des Pins
+  setzt einen neuen Punkt — gespeichert wird erst auf Knopfdruck. Leaflet ist im Plugin
+  enthalten, nur die Kacheln brauchen Netz; ohne Verbindung bleibt der Rest voll bedienbar.
+  Abschaltbar unter Einstellungen → Geodaten.
 - **Manuell bearbeiten** mit Validierung von Breite, Länge und Höhe
 - **Einfügen & erkennen**: ein Feld, das Koordinaten aus so ziemlich allem herausholt, was
   man aus einer Karten-App teilt — mit Live-Vorschau, bevor etwas gespeichert wird:
