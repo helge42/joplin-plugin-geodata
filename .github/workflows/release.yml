@@ -1,0 +1,49 @@
+name: Release
+
+# Ein Tag wie v0.2.0 genügt: bauen, testen, Release mit der .jpl anlegen.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Für die automatischen Release-Notes wird die Historie gebraucht.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Tag gegen manifest.json prüfen
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          manifest="$(node -p "require('./src/manifest.json').version")"
+          if [ "$tag" != "$manifest" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME passt nicht zur Version in src/manifest.json ($manifest)."
+            exit 1
+          fi
+          echo "Version $manifest"
+
+      - name: Tests
+        run: npm test
+
+      - name: Plugin bauen
+        run: npm run dist
+
+      - name: Release anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" publish/*.jpl --generate-notes
