@@ -154,7 +154,24 @@ Der Pin ist bewusst CSS statt Leaflets Standard-Icon, das PNGs nachladen würde.
 
 Offen: „Von anderer Notiz übernehmen", Umschalter Dezimal/DMS.
 
-### Phase 2 — Standort in die Notiz einfügen
+### Phase 2 — Standort in die Notiz einfügen ✅
+
+**Stand 2026-08-15:** Command `geodata.insertLocation` mit Toolbar-Knopf und ein Knopf im
+Panel. Eingefügt wird über `insertText` — dasselbe Command, das Joplins eigenes
+„Datum einfügen“ auf beiden Plattformen benutzt, also an der Cursorposition statt am
+Notizende (ein `data.put` auf `body` würde mit dem offenen Editor kollidieren).
+
+Der Toolbar-Weg versucht zuerst einen frischen Fix im Plugin-Prozess und fällt auf die
+gespeicherten Geodaten der Notiz zurück; ob der Plugin-Prozess selbst ans GPS kommt, ist
+im Gegensatz zum Panel ungeprüft, deshalb der harte Timeout und der Fallback.
+Der Panel-Knopf nimmt die *angezeigten* Feldwerte, damit ein frisch auf der Karte
+gesetzter Punkt ohne Zwischenspeichern in den Text kann.
+
+Vorlage frei konfigurierbar (`insertTemplate`), `{place}` per Nominatim mit Cache und
+stiller Degradierung auf leer. Unbekannte Platzhalter bleiben sichtbar stehen, statt ein
+Loch zu hinterlassen. 10 Testfälle in `test/template.js`.
+
+Ursprüngliche Planung:
 
 - Command **„Standort einfügen“** (Editor-Toolbar/Menü, sofern auf Mobile verfügbar)
 - Einfügeformat über Settings konfigurierbar, z. B.
@@ -208,3 +225,58 @@ iOS-Unterstützung dazukommen soll oder eine Joplin-Version den Zugriff wieder z
   `updated_time`.
 - **Batterie/Genauigkeit** — bei später verfügbarem GPS: Timeout + Genauigkeitsanzeige vorsehen,
   nicht blind auf den ersten Fix vertrauen.
+
+---
+
+## 6. Nebenbei geklärt
+
+Entscheidungen und Erkenntnisse, die unterwegs im Gespräch anfielen und sonst nur im
+Chatverlauf stünden.
+
+### Plugin-IDs sind Reverse-DNS
+
+`io.github.helge42.geodata` folgt derselben Konvention wie Java-Packages, Android-App-IDs
+und macOS-Bundle-IDs; Joplins Generator fragt danach („such as `com.example.MyPlugin` or a
+UUID“). Der Sinn: Eindeutigkeit ohne zentrale Vergabestelle — der Namensraum gehört dem,
+der die Domain besitzt. Deshalb der Wechsel weg von `eu.muennich.…`, das nur aus der
+Mail-Domain abgeleitet war: GitHub-Namensräume gelten in der Praxis als gleichwertiger
+Eigentumsnachweis, und `helge42` gehört nachweislich uns.
+
+Die ID ist die Identität des Plugins. Ein Wechsel bedeutet für alle Nutzer deinstallieren
+und neu installieren — also möglichst früh festlegen.
+
+### Verteilung: Releases statt `publish/` im Git
+
+Ein `.jpl` ist ein gepacktes Archiv; bei jedem Build ändern sich praktisch alle Bytes, Git
+kann nichts deltakomprimieren und legt jedes Mal eine volle Kopie ab. Wichtiger noch:
+Aus dem Repo bekämen Mitleser immer nur „was gerade in `main` liegt“ — ohne Version, ohne
+Changelog. Deshalb GitHub-Releases mit fester Latest-URL, `publish/` bleibt ignoriert.
+
+### Commit-Adressen vor dem ersten Push
+
+Die ersten Commits trugen eine private Adresse. Da noch nichts gepusht war, wurde die
+Historie vor dem ersten Push per `git filter-branch` auf
+`19750682+helge42@users.noreply.github.com` umgeschrieben. In einem öffentlichen Repo ist
+das später nur noch mit Neuschreiben der Historie zu korrigieren — also vorher prüfen.
+
+Nebenbei: `.claude/settings.local.json` war nie im Repo, weil das globale
+`~/.config/git/ignore` es bereits ausschließt.
+
+### `workflow`-Scope für GitHub Actions
+
+GitHub lehnt Pushes ab, die Dateien unter `.github/workflows/` anlegen oder ändern, wenn
+das OAuth-Token der App den `workflow`-Scope nicht hat — unabhängig von den
+Repo-Rechten. Nachreichen mit `gh auth refresh -h github.com -s workflow`.
+
+### Node-20-Abkündigung auf den Runnern
+
+`actions/checkout@v4` und `actions/setup-node@v4` laufen auf Node 20 und werden von GitHub
+zwangsweise auf Node 24 umgebogen — mit Warnung im Lauf. Ein Umstieg auf `@v5` erledigt
+das. Betrifft nur die Actions selbst, nicht `node-version: '20'` für den Build.
+
+### Offene Frage: `geo:`-Links im Notiz-Viewer
+
+Ob Joplin ein `[Text](geo:52.5,13.4)` im gerenderten Notiztext als klickbaren Link an die
+Karten-App durchreicht, ist ungeprüft. Deshalb steht die Einfüge-Vorlage per Default auf
+dem OSM-`https`-Link, der garantiert funktioniert; `{geo}` ist dokumentiert und einen
+Versuch wert.

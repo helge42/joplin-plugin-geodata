@@ -40,6 +40,10 @@ export const panelHtml = `
 		<button id="button-reset" type="button">Verwerfen</button>
 	</div>
 
+	<div class="buttons">
+		<button id="button-insert" type="button">In Notiz einfügen</button>
+	</div>
+
 	<div class="section">
 		<label for="field-paste">Einfügen &amp; erkennen</label>
 		<input id="field-paste" type="text" autocomplete="off" placeholder="geo:… · Maps-Link · 52.5163, 13.3777">

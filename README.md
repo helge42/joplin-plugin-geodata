@@ -33,6 +33,21 @@ dauerhaft ohne Ort.
 
   Kurzlinks (`maps.app.goo.gl`) enthalten keine Koordinaten und werden mit einer
   Erklärung abgelehnt statt still zu scheitern.
+- **Standort als Text in die Notiz einfügen** — an der Cursorposition, über den
+  Toolbar-Knopf oder aus dem Panel heraus. Die Vorlage ist frei konfigurierbar:
+
+  | Platzhalter | Ergebnis |
+  |---|---|
+  | `{lat}` `{lon}` `{alt}` | `52.5163` · `13.3777` · Höhe in Metern, leer wenn unbekannt |
+  | `{dms}` | `52°30'58.7"N 13°22'39.7"E` |
+  | `{geo}` | `geo:`-URI, öffnet die Karten-App des Geräts |
+  | `{osm}` | Link auf OpenStreetMap |
+  | `{date}` `{time}` | `2026-08-15` · `14:35` |
+  | `{place}` | Ortsname von OpenStreetMap (braucht Netz, sonst leer) |
+
+  Voreinstellung: `📍 [{lat}, {lon}]({osm})`. Der Toolbar-Knopf nimmt einen frischen
+  GPS-Fix und fällt auf die gespeicherten Geodaten der Notiz zurück — praktisch, wenn die
+  Reise erst zu Hause aufgeschrieben wird.
 - **Breite/Länge tauschen** und **Löschen** (mit Bestätigungs-Tap)
 - **Diagnose**-Bereich, der Umgebung und Standortzugriff des Plugin-WebViews prüft
 

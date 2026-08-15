@@ -1,9 +1,11 @@
 import joplin from 'api';
-import { SettingItemType, ToolbarButtonLocation } from 'api/types';
+import { SettingItemType, ToastType, ToolbarButtonLocation } from 'api/types';
 import { panelHtml } from './panel/markup';
 import { parseLocation } from './location/parse';
 import { Coordinates, isEmpty, isValidLatitude, isValidLongitude } from './location/types';
 import { formatDecimal, formatPairDms, geoUri, osmUrl } from './location/format';
+import { defaultTemplate, placeholders, renderTemplate, usesPlaceholder } from './location/template';
+import { reverseGeocode } from './geocode';
 import { readNoteGeodata, readSelectedNoteGeodata, writeCoordinates } from './notes';
 
 interface PanelState {
@@ -69,6 +71,43 @@ const coordinatesFromFields = (message: { latitude: string; longitude: string; a
 	return { error: '', coordinates: { latitude, longitude, altitude } };
 };
 
+// The panel webview reaches the device GPS on Android. Whether the plugin process does too
+// is not documented, so this stays a best effort with a hard timeout: if nothing comes
+// back, the caller falls back to the coordinates already stored on the note.
+const pluginProcessPosition = (): Promise<Coordinates | null> => new Promise((resolve) => {
+	const geolocation = (globalThis as any).navigator?.geolocation;
+	if (!geolocation) return resolve(null);
+
+	let settled = false;
+	const finish = (value: Coordinates | null) => {
+		if (settled) return;
+		settled = true;
+		resolve(value);
+	};
+
+	setTimeout(() => finish(null), 20000);
+	geolocation.getCurrentPosition(
+		(position: any) => finish({
+			latitude: position.coords.latitude,
+			longitude: position.coords.longitude,
+			altitude: position.coords.altitude === null || position.coords.altitude === undefined ? null : position.coords.altitude,
+		}),
+		() => finish(null),
+		{ enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 },
+	);
+});
+
+// Builds the snippet and drops it at the cursor. `insertText` exists on desktop and mobile
+// alike - it is what Joplin's own "Insert time" uses.
+const insertLocationText = async (coordinates: Coordinates) => {
+	const template = (await joplin.settings.value('insertTemplate')) || defaultTemplate;
+	const place = usesPlaceholder(template, 'place') ? await reverseGeocode(coordinates) : '';
+	const text = renderTemplate(template, { coordinates, place, now: new Date() });
+
+	await joplin.commands.execute('insertText', text);
+	return text;
+};
+
 const requireNote = async (noteId: string) => {
 	if (noteId) return noteId;
 	const selected = await joplin.workspace.selectedNote();
@@ -90,6 +129,14 @@ joplin.plugins.register({
 				value: true,
 				label: 'Karte im Panel anzeigen',
 				description: 'Die Karte lädt Kacheln von OpenStreetMap. Ohne Karte funktioniert das Panel unverändert, nur ohne Kartendarstellung.',
+			},
+			insertTemplate: {
+				section: 'geodata',
+				public: true,
+				type: SettingItemType.String,
+				value: defaultTemplate,
+				label: 'Vorlage für "Standort einfügen"',
+				description: `Platzhalter: ${Object.keys(placeholders).join(' ')} — {place} fragt OpenStreetMap und braucht Netz.`,
 			},
 		});
 
@@ -168,6 +215,17 @@ joplin.plugins.register({
 					return await buildState(noteId, 'Geodaten gelöscht.', 'ok');
 				}
 
+				case 'insertLocation': {
+					const noteId = await requireNote(message.noteId);
+					if (!noteId) return emptyState('Keine Notiz ausgewählt.', 'error');
+
+					const { error, coordinates } = coordinatesFromFields(message);
+					if (error) return await buildState(noteId, error, 'error');
+
+					const text = await insertLocationText(coordinates);
+					return await buildState(noteId, `Eingefügt: ${text}`, 'ok');
+				}
+
 				case 'getSettings':
 					return { showMap: await joplin.settings.value('showMap') };
 
@@ -211,8 +269,42 @@ joplin.plugins.register({
 			},
 		});
 
+		await joplin.commands.register({
+			name: 'geodata.insertLocation',
+			label: 'Standort in Notiz einfügen',
+			execute: async () => {
+				// Prefer a fresh fix; fall back to what the note already carries, so the
+				// command stays useful indoors and when writing up a trip afterwards.
+				let coordinates = await pluginProcessPosition();
+				let source = 'aktueller Standort';
+
+				if (!coordinates) {
+					const note = await readSelectedNoteGeodata();
+					if (note && !isEmpty(note.coordinates)) {
+						coordinates = note.coordinates;
+						source = 'Geodaten der Notiz';
+					}
+				}
+
+				if (!coordinates) {
+					await joplin.views.dialogs.showToast({
+						message: 'Kein Standort verfügbar. Im Geodaten-Panel den Standort holen und dort einfügen.',
+						type: ToastType.Error,
+					});
+					return;
+				}
+
+				await insertLocationText(coordinates);
+				await joplin.views.dialogs.showToast({
+					message: `Standort eingefügt (${source}).`,
+					type: ToastType.Success,
+				});
+			},
+		});
+
 		// NoteToolbar is desktop-only, EditorToolbar works on both platforms.
 		await joplin.views.toolbarButtons.create('geodata.togglePanelButton', 'geodata.togglePanel', ToolbarButtonLocation.EditorToolbar);
+		await joplin.views.toolbarButtons.create('geodata.insertLocationButton', 'geodata.insertLocation', ToolbarButtonLocation.EditorToolbar);
 
 		await joplin.workspace.onNoteSelectionChange(async () => {
 			await push();

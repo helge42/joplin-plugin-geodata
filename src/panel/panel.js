@@ -196,6 +196,17 @@
 		});
 	});
 
+	// Inserts what is currently in the fields, not what is stored - so a point just picked
+	// on the map can go into the text without saving it to the note first.
+	$('button-insert').addEventListener('click', () => {
+		void sendAndRender({
+			type: 'insertLocation',
+			latitude: fields.latitude.value,
+			longitude: fields.longitude.value,
+			altitude: fields.altitude.value,
+		});
+	});
+
 	$('button-reset').addEventListener('click', () => {
 		void sendAndRender({ type: 'getState' });
 	});
