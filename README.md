@@ -56,6 +56,15 @@ npm test      # Parser-Tests, ohne Test-Framework
 npm run dist  # baut dist/ und publish/*.jpl
 ```
 
+Neue Version veröffentlichen: `version` in `src/manifest.json` hochziehen, committen, dann
+
+```bash
+git tag v0.2.0 && git push --tags
+```
+
+Der Workflow in `.github/workflows/release.yml` baut, testet und legt das Release mit der
+`.jpl` an. Er bricht ab, wenn der Tag nicht zur Version im Manifest passt.
+
 Aufbau: Die gesamte Logik (Parsen, Validieren, Speichern) liegt im Plugin-Prozess unter
 `src/`; das Panel unter `src/panel/` ist bewusst dumme UI und schickt nur Absichten per
 `webviewApi.postMessage`. Planung, Rechercheergebnisse und die offenen Punkte stehen in
