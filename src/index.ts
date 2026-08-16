@@ -1,5 +1,5 @@
 import joplin from 'api';
-import { SettingItemType, ToastType, ToolbarButtonLocation } from 'api/types';
+import { ContentScriptType, SettingItemType, ToastType, ToolbarButtonLocation } from 'api/types';
 import { panelHtml } from './panel/markup';
 import { parseLocation } from './location/parse';
 import { Coordinates, isEmpty, isValidLatitude, isValidLongitude } from './location/types';
@@ -154,6 +154,13 @@ joplin.plugins.register({
 				description: `Platzhalter: ${Object.keys(placeholders).join(' ')} — {place} fragt OpenStreetMap und braucht Netz.`,
 			},
 		});
+
+		// Renders ```gpx blocks as an OpenStreetMap map in the note viewer.
+		await joplin.contentScripts.register(
+			ContentScriptType.MarkdownItPlugin,
+			'geodata.gpx',
+			'./gpx/contentScript.js',
+		);
 
 		const panel = await joplin.views.panels.create('geodata.panel');
 		await joplin.views.panels.setHtml(panel, panelHtml);

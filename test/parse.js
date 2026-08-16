@@ -1,4 +1,4 @@
-const { parseLocation } = require('../.test-build/parse');
+const { parseLocation } = require('../.test-build/location/parse');
 
 const cases = [
 	['geo:52.5163,13.3777', 52.5163, 13.3777],

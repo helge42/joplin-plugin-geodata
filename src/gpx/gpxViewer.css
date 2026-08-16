@@ -1,0 +1,37 @@
+/* Styling for rendered ```gpx blocks in the note viewer. */
+
+.geodata-gpx {
+	margin: 1em 0;
+}
+
+.geodata-gpx-map {
+	height: 260px;
+	max-width: 100%;
+	border-radius: 6px;
+	border: 1px solid rgba(128, 128, 128, 0.4);
+	background-color: rgba(128, 128, 128, 0.08);
+}
+
+/* Error and offline states reuse the map box so the layout does not jump. */
+.geodata-gpx-error {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: auto;
+	min-height: 80px;
+	padding: 12px;
+	text-align: center;
+	opacity: 0.8;
+}
+
+.geodata-gpx-stats {
+	margin-top: 6px;
+	font-size: 0.9em;
+	opacity: 0.8;
+}
+
+/* Leaflet sets its own font size; without this the attribution is oversized in the note. */
+.geodata-gpx .leaflet-container {
+	font-family: inherit;
+	font-size: 0.8em;
+}

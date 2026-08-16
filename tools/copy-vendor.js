@@ -8,19 +8,28 @@ const fs = require('fs');
 const path = require('path');
 
 const source = path.dirname(require.resolve('leaflet/package.json'));
-const target = path.resolve(__dirname, '..', 'src', 'panel', 'vendor');
 const files = ['dist/leaflet.js', 'dist/leaflet.css'];
 
-fs.mkdirSync(target, { recursive: true });
+// Two copies on purpose: the panel loads its assets by path, while content script assets
+// are resolved flat next to the content script. ~150 KB twice is cheaper than a fragile
+// relative path into another plugin directory.
+const targets = [
+	path.resolve(__dirname, '..', 'src', 'panel', 'vendor'),
+	path.resolve(__dirname, '..', 'src', 'gpx'),
+];
 
-for (const file of files) {
-	const from = path.join(source, file);
-	if (!fs.existsSync(from)) {
-		console.error(`copy-vendor: ${from} fehlt - "npm install" ausführen.`);
-		process.exit(1);
+for (const target of targets) {
+	fs.mkdirSync(target, { recursive: true });
+
+	for (const file of files) {
+		const from = path.join(source, file);
+		if (!fs.existsSync(from)) {
+			console.error(`copy-vendor: ${from} fehlt - "npm install" ausführen.`);
+			process.exit(1);
+		}
+		fs.copyFileSync(from, path.join(target, path.basename(file)));
 	}
-	fs.copyFileSync(from, path.join(target, path.basename(file)));
 }
 
 const version = require('leaflet/package.json').version;
-console.log(`copy-vendor: Leaflet ${version} nach src/panel/vendor/ kopiert`);
+console.log(`copy-vendor: Leaflet ${version} nach src/panel/vendor/ und src/gpx/ kopiert`);

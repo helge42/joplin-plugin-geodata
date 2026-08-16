@@ -52,6 +52,23 @@ dauerhaft ohne Ort.
   Im **Rich-Text-Editor** wird nur der Text ohne Link eingefügt: dieser Editor nimmt
   eingefügten Text wörtlich und maskiert beim Zurückschreiben die Klammern, sodass
   `\[52.5, 13.3\](geo:…)` in der Notiz stünde.
+- **GPX-Tracks in der Notiz anzeigen**: ein Codeblock mit `gpx` als Sprache wird beim
+  Betrachten als OpenStreetMap-Karte gezeichnet, mit Start- und Zielpunkt sowie Länge,
+  Anstieg, Dauer und Punktzahl darunter.
+
+  ````markdown
+  ```gpx
+  <?xml version="1.0"?>
+  <gpx version="1.1"><trk><trkseg>
+    <trkpt lat="47.98976" lon="7.87755"><ele>278</ele></trkpt>
+    <trkpt lat="47.99512" lon="7.88301"><ele>295</ele></trkpt>
+  </trkseg></trk></gpx>
+  ```
+  ````
+
+  Aufnahmepausen werden nicht als Luftlinie durchgezogen, sehr lange Tracks zum Zeichnen
+  ausgedünnt (die Statistik rechnet mit allen Punkten). Ohne Netz bleibt die Kartenfläche
+  leer, die Zahlen stehen trotzdem da.
 - **Breite/Länge tauschen** und **Löschen** (mit Bestätigungs-Tap)
 - **Diagnose**-Bereich, der Umgebung und Standortzugriff des Plugin-WebViews prüft
 

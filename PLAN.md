@@ -187,7 +187,30 @@ Ursprüngliche Planung:
 - Massenaktion: „Alle Notizen dieses Ordners ohne Geodaten anzeigen“ → schnelles Nachpflegen
 - Export der Notizen eines Ordners als GPX/GeoJSON (Reiseroute)
 
-### Phase 4 — GPX-Tracks darstellen
+### Phase 4 — GPX-Tracks darstellen (Grundfunktion steht)
+
+**Stand 2026-08-16:** ```gpx-Blöcke werden im Viewer als OSM-Karte gerendert.
+
+Aufbau: `src/gpx/contentScript.ts` (als `extraScripts` gebaut, weil Joplin die Datei
+`require()`t) liefert nur den Container und reicht die Quelle durch; gezeichnet wird in
+`src/gpx/gpxViewer.js`. Dieses Viewer-Skript muss **reines JS** bleiben — Content-Script-
+Assets werden unverändert kopiert und per `<script>` geladen, der CommonJS-Wrapper der
+`extraScripts` (`exports.default = …`) würde dort mit `exports is not defined` sterben.
+Assets werden flach neben dem Content-Script aufgelöst, deshalb liegt Leaflet ein zweites
+Mal in `src/gpx/` (per `npm run vendor`).
+
+Der Block wird in `joplin-editable`/`joplin-source` verpackt: der Rich-Text-Editor kann
+daraus wieder den Codeblock bauen, Joplins eigenes Stylesheet blendet die Quelle aus, und
+das Viewer-Skript liest das GPX von dort. Mehrere `<trkseg>` bleiben getrennte Linien, damit
+Aufnahmepausen nicht als Luftlinie erscheinen; zum Zeichnen wird auf 2000 Punkte
+ausgedünnt, gerechnet wird mit allen. Der Anstieg summiert nur Zuwächse ab 3 m gegen den
+letzten akzeptierten Wert, sonst summiert sich GPS-Rauschen zu Fantasie-Höhenmetern.
+
+Offen: GPX aus einer **angehängten Datei** statt inline (spart Notizgröße, braucht
+`webviewApi.postMessage` und Ressourcen-Zugriff) und der **Bildexport** — `joplin.imaging`
+und `joplin.fs` sind desktop-only, auf Mobile bliebe nur eine `data:`-URL in der Notiz.
+
+Ursprüngliche Planung:
 
 - **Content-Script** (`MarkdownItPlugin`) rendert Blöcke:
   ```` ```gpx ```` mit **inline GPX** *oder* Verweis `resource: :/<resourceId>` auf eine

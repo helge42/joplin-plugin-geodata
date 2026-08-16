@@ -1,4 +1,4 @@
-const { renderTemplate, defaultTemplate, stripMarkdownLinks } = require('../.test-build/template');
+const { renderTemplate, defaultTemplate, stripMarkdownLinks } = require('../.test-build/location/template');
 
 const berlin = { latitude: 52.5163, longitude: 13.3777, altitude: 34 };
 const noAltitude = { latitude: 52.5163, longitude: 13.3777, altitude: 0 };

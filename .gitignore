@@ -3,3 +3,5 @@ node_modules/
 publish/
 .test-build/
 src/panel/vendor/
+src/gpx/leaflet.js
+src/gpx/leaflet.css
