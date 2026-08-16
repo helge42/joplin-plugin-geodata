@@ -161,6 +161,15 @@
 		dirty = false;
 		disarmClear();
 		updateMap(next);
+		void refreshInsertAvailability();
+	};
+
+	// Editor commands only work while an editor is mounted - on the phone that means the
+	// note must be open for editing, not just being viewed.
+	const refreshInsertAvailability = async () => {
+		const available = await webviewApi.postMessage({ type: 'editorAvailable' });
+		$('button-insert').disabled = !available;
+		$('insert-hint').textContent = available ? '' : 'Zum Einfügen die Notiz im Bearbeiten-Modus öffnen.';
 	};
 
 	const send = async (message) => {
@@ -272,13 +281,17 @@
 		navigator.geolocation.getCurrentPosition(
 			(position) => {
 				restore();
-				void sendAndRender({
-					type: 'setCoordinates',
-					latitude: position.coords.latitude,
-					longitude: position.coords.longitude,
-					altitude: position.coords.altitude,
-					note: `Standort übernommen (±${Math.round(position.coords.accuracy)} m).`,
-				});
+				// Only fills the form - saving stays an explicit decision, so that fetching a
+				// position (or inserting it into the text) never rewrites the note by itself.
+				fields.latitude.value = position.coords.latitude.toFixed(6);
+				fields.longitude.value = position.coords.longitude.toFixed(6);
+				if (position.coords.altitude !== null && position.coords.altitude !== undefined) {
+					fields.altitude.value = Math.round(position.coords.altitude);
+				}
+				dirty = true;
+				placeMarker(position.coords.latitude, position.coords.longitude);
+				if (map) map.setView([position.coords.latitude, position.coords.longitude], Math.max(map.getZoom(), DEFAULT_ZOOM));
+				setMessage(`Standort ermittelt (±${Math.round(position.coords.accuracy)} m) - zum Übernehmen speichern.`, '');
 			},
 			(error) => {
 				restore();

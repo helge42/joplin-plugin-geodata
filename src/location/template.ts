@@ -15,10 +15,15 @@ export const placeholders = {
 	'{place}': 'Ortsname (fragt OpenStreetMap, braucht Netz)',
 };
 
-// Defaults to the OpenStreetMap link because https works in Joplin's viewer everywhere.
-// {geo} opens the device's own maps app and is the nicer link on a phone - worth switching
-// to once you have confirmed your Joplin renders geo: links.
-export const defaultTemplate = '📍 [{lat}, {lon}]({osm})';
+// Confirmed on Joplin-Android 3.6.21: a geo: link in the rendered note opens the device's
+// maps app, which beats sending the reader to a website while travelling.
+export const defaultTemplate = '📍 [{lat}, {lon}]({geo})';
+
+// The rich text editor takes inserted text literally and escapes the brackets when it
+// serialises back to Markdown, which leaves "\[52.5, 13.3\](geo:...)" in the note. There is
+// no portable way to hand it a real link, so the link syntax is unwrapped and the label
+// inserted as plain text.
+export const stripMarkdownLinks = (text: string) => text.replace(/\[([^\]]*)\]\(([^)]*)\)/g, '$1');
 
 const pad = (value: number) => String(value).padStart(2, '0');
 

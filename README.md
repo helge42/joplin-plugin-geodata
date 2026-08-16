@@ -12,8 +12,8 @@ dauerhaft ohne Ort.
 
 - **Anzeigen** der Koordinaten in Dezimalgrad und in Grad/Minuten/Sekunden, dazu Links zu
   OpenStreetMap und zur Karten-App des Geräts (`geo:`-URI)
-- **Aktuellen Standort übernehmen** — ein Tap, schreibt Position und Höhe in die Notiz und
-  meldet die Genauigkeit
+- **Aktuellen Standort ermitteln** — ein Tap füllt Position und Höhe samt Genauigkeit in die
+  Felder; gespeichert wird erst mit „Speichern", damit nichts ungefragt in die Notiz wandert
 - **Karte** (OpenStreetMap): zeigt die Position der Notiz, ein Tap oder das Ziehen des Pins
   setzt einen neuen Punkt — gespeichert wird erst auf Knopfdruck. Leaflet ist im Plugin
   enthalten, nur die Kacheln brauchen Netz; ohne Verbindung bleibt der Rest voll bedienbar.
@@ -33,8 +33,8 @@ dauerhaft ohne Ort.
 
   Kurzlinks (`maps.app.goo.gl`) enthalten keine Koordinaten und werden mit einer
   Erklärung abgelehnt statt still zu scheitern.
-- **Standort als Text in die Notiz einfügen** — an der Cursorposition, über den
-  Toolbar-Knopf oder aus dem Panel heraus. Die Vorlage ist frei konfigurierbar:
+- **Standort als Text in die Notiz einfügen** — an der Cursorposition, über den Knopf im
+  Panel. Die Vorlage ist frei konfigurierbar:
 
   | Platzhalter | Ergebnis |
   |---|---|
@@ -45,9 +45,13 @@ dauerhaft ohne Ort.
   | `{date}` `{time}` | `2026-08-15` · `14:35` |
   | `{place}` | Ortsname von OpenStreetMap (braucht Netz, sonst leer) |
 
-  Voreinstellung: `📍 [{lat}, {lon}]({osm})`. Der Toolbar-Knopf nimmt einen frischen
-  GPS-Fix und fällt auf die gespeicherten Geodaten der Notiz zurück — praktisch, wenn die
-  Reise erst zu Hause aufgeschrieben wird.
+  Voreinstellung: `📍 [{lat}, {lon}]({geo})` — der `geo:`-Link öffnet auf dem Handy direkt
+  die Karten-App. Eingefügt wird, was im Panel steht, auch ein gerade auf der Karte
+  gesetzter Punkt; die Geodaten der Notiz bleiben davon unberührt.
+
+  Im **Rich-Text-Editor** wird nur der Text ohne Link eingefügt: dieser Editor nimmt
+  eingefügten Text wörtlich und maskiert beim Zurückschreiben die Klammern, sodass
+  `\[52.5, 13.3\](geo:…)` in der Notiz stünde.
 - **Breite/Länge tauschen** und **Löschen** (mit Bestätigungs-Tap)
 - **Diagnose**-Bereich, der Umgebung und Standortzugriff des Plugin-WebViews prüft
 

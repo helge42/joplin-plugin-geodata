@@ -274,9 +274,23 @@ Repo-Rechten. Nachreichen mit `gh auth refresh -h github.com -s workflow`.
 zwangsweise auf Node 24 umgebogen — mit Warnung im Lauf. Ein Umstieg auf `@v5` erledigt
 das. Betrifft nur die Actions selbst, nicht `node-version: '20'` für den Build.
 
-### Offene Frage: `geo:`-Links im Notiz-Viewer
+### `geo:`-Links im Notiz-Viewer funktionieren
 
-Ob Joplin ein `[Text](geo:52.5,13.4)` im gerenderten Notiztext als klickbaren Link an die
-Karten-App durchreicht, ist ungeprüft. Deshalb steht die Einfüge-Vorlage per Default auf
-dem OSM-`https`-Link, der garantiert funktioniert; `{geo}` ist dokumentiert und einen
-Versuch wert.
+Am Gerät bestätigt: `[Text](geo:52.5,13.4)` im gerenderten Notiztext öffnet die Karten-App.
+`{geo}` ist deshalb die Voreinstellung der Einfüge-Vorlage.
+
+### Der Rich-Text-Editor verträgt keine eingefügte Markdown-Syntax
+
+Er nimmt über `insertText` eingefügten Text wörtlich und maskiert beim Serialisieren zurück
+nach Markdown die Klammern — aus `[52.5, 13.3](geo:…)` wird `\[52.5, 13.3\](geo:…)`, der
+Link ist tot. Einen portablen Weg, ihm einen echten Link zu übergeben, gibt es nicht
+(Desktop-TinyMCE könnte `mceInsertContent`, der ProseMirror-Editor auf Mobile nicht).
+Erkannt wird der Fall über die Einstellung `editor.codeView` (`false` = Rich-Text, existiert
+für Desktop **und** Mobile); dann wird die Link-Syntax entfernt und nur das Label eingefügt.
+
+### Editor-Verfügbarkeit ist abfragbar, wenn auch nur indirekt
+
+Die Plugin-API kennt keinen Zustand „Editor offen“. Aber `CommandService.execute` wirft
+`Cannot execute a command without a runtime`, wenn kein Editor gemountet ist. Ein Versuch
+mit dem lesenden Command `selectedText` ist daher eine gefahrlose Probe — damit wird
+„In Notiz einfügen“ im Panel ausgegraut, solange die Notiz nur angesehen wird.

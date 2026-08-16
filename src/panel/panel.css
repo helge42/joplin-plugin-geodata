@@ -4,6 +4,10 @@
 .geodata {
 	box-sizing: border-box;
 	padding: 12px;
+	/* On the desktop the panel can be resized to less than the content needs; without this
+	   the lower half is simply unreachable. */
+	max-height: 100vh;
+	overflow-y: auto;
 	font-family: var(--joplin-font-family, sans-serif);
 	font-size: var(--joplin-font-size, 14px);
 	color: var(--joplin-color, #222);

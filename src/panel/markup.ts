@@ -22,7 +22,7 @@ export const panelHtml = `
 		<div class="hint" id="map-hint"></div>
 	</div>
 
-	<button id="button-locate" class="primary locate" type="button">Aktuellen Standort übernehmen</button>
+	<button id="button-locate" class="primary locate" type="button">Aktuellen Standort ermitteln</button>
 
 	<div class="fields">
 		<label for="field-latitude">Breite</label>
@@ -43,6 +43,7 @@ export const panelHtml = `
 	<div class="buttons">
 		<button id="button-insert" type="button">In Notiz einfügen</button>
 	</div>
+	<div class="hint" id="insert-hint"></div>
 
 	<div class="section">
 		<label for="field-paste">Einfügen &amp; erkennen</label>

@@ -4,7 +4,7 @@ import { panelHtml } from './panel/markup';
 import { parseLocation } from './location/parse';
 import { Coordinates, isEmpty, isValidLatitude, isValidLongitude } from './location/types';
 import { formatDecimal, formatPairDms, geoUri, osmUrl } from './location/format';
-import { defaultTemplate, placeholders, renderTemplate, usesPlaceholder } from './location/template';
+import { defaultTemplate, placeholders, renderTemplate, stripMarkdownLinks, usesPlaceholder } from './location/template';
 import { reverseGeocode } from './geocode';
 import { readNoteGeodata, readSelectedNoteGeodata, writeCoordinates } from './notes';
 
@@ -97,15 +97,30 @@ const pluginProcessPosition = (): Promise<Coordinates | null> => new Promise((re
 	);
 });
 
+// Editor commands only have a runtime while an editor is mounted. `selectedText` reads and
+// changes nothing, which makes it a safe probe for "can we insert right now?".
+const editorAvailable = async () => {
+	try {
+		await joplin.commands.execute('selectedText');
+		return true;
+	} catch (error) {
+		return false;
+	}
+};
+
 // Builds the snippet and drops it at the cursor. `insertText` exists on desktop and mobile
 // alike - it is what Joplin's own "Insert time" uses.
 const insertLocationText = async (coordinates: Coordinates) => {
 	const template = (await joplin.settings.value('insertTemplate')) || defaultTemplate;
 	const place = usesPlaceholder(template, 'place') ? await reverseGeocode(coordinates) : '';
-	const text = renderTemplate(template, { coordinates, place, now: new Date() });
+	const rendered = renderTemplate(template, { coordinates, place, now: new Date() });
+
+	const [codeView] = await joplin.settings.globalValues(['editor.codeView']);
+	const richText = codeView === false;
+	const text = richText ? stripMarkdownLinks(rendered) : rendered;
 
 	await joplin.commands.execute('insertText', text);
-	return text;
+	return { text, richText };
 };
 
 const requireNote = async (noteId: string) => {
@@ -190,23 +205,6 @@ joplin.plugins.register({
 					return await buildState(noteId, `Übernommen (${result.source}).`, 'ok');
 				}
 
-				case 'setCoordinates': {
-					const noteId = await requireNote(message.noteId);
-					if (!noteId) return emptyState('Keine Notiz ausgewählt.', 'error');
-
-					const coordinates: Coordinates = {
-						latitude: Number(message.latitude),
-						longitude: Number(message.longitude),
-						altitude: message.altitude === null || message.altitude === undefined ? null : Number(message.altitude),
-					};
-					if (!isValidLatitude(coordinates.latitude) || !isValidLongitude(coordinates.longitude)) {
-						return await buildState(noteId, 'Ungültige Koordinaten erhalten.', 'error');
-					}
-
-					await writeCoordinates(noteId, coordinates);
-					return await buildState(noteId, message.note || 'Gespeichert.', 'ok');
-				}
-
 				case 'clear': {
 					const noteId = await requireNote(message.noteId);
 					if (!noteId) return emptyState('Keine Notiz ausgewählt.', 'error');
@@ -215,6 +213,9 @@ joplin.plugins.register({
 					return await buildState(noteId, 'Geodaten gelöscht.', 'ok');
 				}
 
+				case 'editorAvailable':
+					return await editorAvailable();
+
 				case 'insertLocation': {
 					const noteId = await requireNote(message.noteId);
 					if (!noteId) return emptyState('Keine Notiz ausgewählt.', 'error');
@@ -222,8 +223,14 @@ joplin.plugins.register({
 					const { error, coordinates } = coordinatesFromFields(message);
 					if (error) return await buildState(noteId, error, 'error');
 
-					const text = await insertLocationText(coordinates);
-					return await buildState(noteId, `Eingefügt: ${text}`, 'ok');
+					if (!await editorAvailable()) {
+						return await buildState(noteId, 'Der Editor ist nicht geöffnet. Notiz zum Bearbeiten öffnen, dann einfügen.', 'error');
+					}
+
+					// Inserting text must not touch the note's own coordinates.
+					const { text, richText } = await insertLocationText(coordinates);
+					const note = richText ? ' (Rich-Text-Editor: als Text ohne Link)' : '';
+					return await buildState(noteId, `Eingefügt: ${text}${note}`, 'ok');
 				}
 
 				case 'getSettings':
@@ -294,6 +301,14 @@ joplin.plugins.register({
 					return;
 				}
 
+				if (!await editorAvailable()) {
+					await joplin.views.dialogs.showToast({
+						message: 'Der Editor ist nicht geöffnet. Notiz zum Bearbeiten öffnen, dann einfügen.',
+						type: ToastType.Error,
+					});
+					return;
+				}
+
 				await insertLocationText(coordinates);
 				await joplin.views.dialogs.showToast({
 					message: `Standort eingefügt (${source}).`,
@@ -303,8 +318,12 @@ joplin.plugins.register({
 		});
 
 		// NoteToolbar is desktop-only, EditorToolbar works on both platforms.
+		//
+		// geodata.insertLocation deliberately has no toolbar button: the plugin process does
+		// not reach the GPS (only the panel webview does), so the command would almost always
+		// fall back to the coordinates already stored on the note. It stays registered for
+		// the desktop command palette and keyboard shortcuts.
 		await joplin.views.toolbarButtons.create('geodata.togglePanelButton', 'geodata.togglePanel', ToolbarButtonLocation.EditorToolbar);
-		await joplin.views.toolbarButtons.create('geodata.insertLocationButton', 'geodata.insertLocation', ToolbarButtonLocation.EditorToolbar);
 
 		await joplin.workspace.onNoteSelectionChange(async () => {
 			await push();

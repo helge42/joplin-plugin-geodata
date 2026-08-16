@@ -1,4 +1,4 @@
-const { renderTemplate, defaultTemplate } = require('../.test-build/template');
+const { renderTemplate, defaultTemplate, stripMarkdownLinks } = require('../.test-build/template');
 
 const berlin = { latitude: 52.5163, longitude: 13.3777, altitude: 34 };
 const noAltitude = { latitude: 52.5163, longitude: 13.3777, altitude: 0 };
@@ -9,7 +9,8 @@ const render = (template, coordinates = berlin, place = '') => renderTemplate(te
 const cases = [
 	['{lat}, {lon}', '52.5163, 13.3777'],
 	['{alt}', '34'],
-	[defaultTemplate, '📍 [52.5163, 13.3777](https://www.openstreetmap.org/?mlat=52.5163&mlon=13.3777#map=15/52.5163/13.3777)'],
+	[defaultTemplate, '📍 [52.5163, 13.3777](geo:52.5163,13.3777?q=52.5163,13.3777)'],
+	['{osm}', 'https://www.openstreetmap.org/?mlat=52.5163&mlon=13.3777#map=15/52.5163/13.3777'],
 	['{geo}', 'geo:52.5163,13.3777?q=52.5163,13.3777'],
 	['{dms}', `52°30'58.7"N 13°22'39.7"E`],
 	['{date} {time}', '2026-08-15 14:35'],
@@ -47,6 +48,15 @@ if (withPlace !== 'Brandenburger Tor, Berlin: 52.5163') {
 	console.log('ok    {place} wird eingesetzt');
 }
 
-const total = cases.length + 2;
+// Rich-Text-Editor: Link-Syntax wird entfernt, damit keine maskierten Klammern entstehen.
+const stripped = stripMarkdownLinks(render(defaultTemplate));
+if (stripped !== '📍 52.5163, 13.3777') {
+	bad++;
+	console.log(`FAIL  stripMarkdownLinks, bekommen ${JSON.stringify(stripped)}`);
+} else {
+	console.log('ok    stripMarkdownLinks entfernt die Link-Syntax');
+}
+
+const total = cases.length + 3;
 console.log(`\n${total - bad}/${total} bestanden`);
 process.exit(bad ? 1 : 0);
