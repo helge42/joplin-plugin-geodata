@@ -206,14 +206,26 @@ Aufnahmepausen nicht als Luftlinie erscheinen; zum Zeichnen wird auf 2000 Punkte
 ausgedünnt, gerechnet wird mit allen. Der Anstieg summiert nur Zuwächse ab 3 m gegen den
 letzten akzeptierten Wert, sonst summiert sich GPS-Rauschen zu Fantasie-Höhenmetern.
 
-**Angehängte Dateien (2026-08-16):** Enthält der Block nur einen Ressourcen-Verweis
-(`:/<32 hex>` oder `[tour.gpx](:/<32 hex>)`), holt das Viewer-Skript den Inhalt per
-`webviewApi.postMessage` beim Plugin-Prozess, der ihn mit
-`joplin.data.get(['resources', id, 'file'])` liest. Der Rumpf überquert dabei eine
-Prozessgrenze und kommt je nach Plattform als Buffer, als serialisiertes
-`{ type: 'Buffer', data: [...] }`, als typisiertes Array oder schon als Text an — deshalb
-normalisiert `decodeToText()` alle Formen. Dateien über 20 MB werden abgelehnt, damit ein
-falsch verlinktes Video nicht durch den Nachrichtenkanal gepresst wird.
+**Angehängte Dateien (2026-08-16):** Enthält der Block nur einen Ressourcen-Verweis, wird
+der Track auf **zwei Wegen** versucht, weil keiner auf beiden Plattformen geht:
+
+1. Der Viewer lädt die Datei direkt über die URL, die der Renderer auch für Bilder baut
+   (`ruleOptions.resources` / `resourceBaseUrl` / `itemIdToUrl`, siehe Joplins
+   `imageReplacement`). **Der einzige Weg, der auf Android funktioniert.**
+2. Nachfrage beim Plugin-Prozess per `webviewApi.postMessage`, der
+   `joplin.data.get(['resources', id, 'file'])` benutzt. **Funktioniert auf dem Desktop**,
+   auf Android antwortet Joplin mit `Unsupported encoding: buffer` — der mobile fsDriver
+   kennt die Kodierung `Buffer` nicht, die die REST-Route fest verdrahtet hat.
+
+Der Dateirumpf kommt bei Weg 2 je nach Plattform als Buffer, als serialisiertes
+`{ type: 'Buffer', data: [...] }`, als typisiertes Array oder als Text an; `decodeToText()`
+normalisiert alle Formen. Dateien über 20 MB werden abgelehnt.
+
+**Wichtig für Nutzer:** Die Datei muss als `[name](:/id)` verlinkt sein, nicht als nackte
+ID. `Note.linkedItemIds` benutzt `extractResourceUrls`, das nur Markdown-Link-Syntax kennt
+(deshalb brauchte Joplins Whiteboard dort einen Sonderfall). Ohne Link ist die Ressource
+für Joplin nicht mit der Notiz verknüpft: Sie taucht nicht in `ruleOptions.resources` auf,
+Weg 1 hat also keine URL — und schlimmer, sie gilt als verwaist und kann aufgeräumt werden.
 
 Offen: der **Bildexport** — `joplin.imaging` und `joplin.fs` sind desktop-only, auf Mobile
 bliebe nur eine `data:`-URL in der Notiz.

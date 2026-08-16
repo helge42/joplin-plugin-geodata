@@ -152,7 +152,14 @@ const insertLocationText = async (coordinates: Coordinates) => {
 	const richText = codeView === false;
 	const text = richText ? stripMarkdownLinks(rendered) : rendered;
 
-	await joplin.commands.execute('insertText', text);
+	// The editor can disappear between the availability check and this call, and the raw
+	// "Cannot execute a command without a runtime" is not something to show a user.
+	try {
+		await joplin.commands.execute('insertText', text);
+	} catch (error) {
+		throw new Error('Der Editor hat den Text nicht angenommen. Notiz zum Bearbeiten öffnen und erneut versuchen.');
+	}
+
 	return { text, richText };
 };
 
@@ -218,7 +225,15 @@ joplin.plugins.register({
 		await joplin.views.panels.addScript(panel, './panel/panel.css');
 		await joplin.views.panels.addScript(panel, './panel/panel.js');
 
+		// Pushing to a panel that is not on screen has nowhere to arrive and makes Joplin log
+		// "no viewMessageHandler was found" for every note change. The panel fetches the
+		// state itself when it opens, so skipping this costs nothing.
 		const push = async (noteId = '') => {
+			try {
+				if (!await joplin.views.panels.visible(panel)) return;
+			} catch (error) {
+				// visible() behaves differently on mobile; if in doubt, send.
+			}
 			joplin.views.panels.postMessage(panel, { type: 'state', state: await buildState(noteId) });
 		};
 

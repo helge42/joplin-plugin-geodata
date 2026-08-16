@@ -11,9 +11,26 @@ export const resourceIdFrom = (content: string) => {
 	return match ? match[1].toLowerCase() : '';
 };
 
+// Builds the same URL Joplin's own image rule uses for a resource, so the note viewer can
+// load the file directly. That is the only way that works on Android, where the data API
+// refuses the resource body with "Unsupported encoding: buffer".
+export const resourceUrlFrom = (ruleOptions: any, resourceId: string) => {
+	const resource = ruleOptions && ruleOptions.resources && ruleOptions.resources[resourceId]
+		? ruleOptions.resources[resourceId].item
+		: null;
+	if (!resource) return '';
+
+	const timestamp = `?t=${resource.updated_time}`;
+	const fromHandler = ruleOptions.itemIdToUrl ? ruleOptions.itemIdToUrl(resource.id, timestamp) : null;
+	if (fromHandler) return fromHandler;
+
+	if (!ruleOptions.ResourceModel) return '';
+	return `${ruleOptions.resourceBaseUrl || './'}${ruleOptions.ResourceModel.filename(resource)}${timestamp}`;
+};
+
 export default function(context: { contentScriptId: string }) {
 	return {
-		plugin: function(markdownIt: any) {
+		plugin: function(markdownIt: any, ruleOptions: any) {
 			const defaultRender = markdownIt.renderer.rules.fence || function(tokens: any, idx: number, options: any, env: any, self: any) {
 				return self.renderToken(tokens, idx, options, env, self);
 			};
@@ -42,6 +59,7 @@ export default function(context: { contentScriptId: string }) {
 						<div
 							class="geodata-gpx-map"
 							data-gpx-resource="${escapeAttribute(resourceId)}"
+							data-gpx-url="${escapeAttribute(resourceId ? resourceUrlFrom(ruleOptions, resourceId) : '')}"
 							data-content-script-id="${escapeAttribute(context.contentScriptId)}"
 						></div>
 						<div class="geodata-gpx-stats"></div>

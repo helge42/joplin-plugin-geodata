@@ -1,5 +1,5 @@
 const MarkdownIt = require('markdown-it');
-const { default: contentScript, resourceIdFrom } = require('../.test-build/gpx/contentScript');
+const { default: contentScript, resourceIdFrom, resourceUrlFrom } = require('../.test-build/gpx/contentScript');
 
 const context = { contentScriptId: 'geodata.gpx' };
 const markdownIt = new MarkdownIt();
@@ -56,6 +56,17 @@ check('liefert die Assets in der richtigen Reihenfolge',
 	assets.join(',') === 'leaflet.css,leaflet.js,gpxViewer.css,gpxViewer.js',
 	assets.join(', '));
 
-const total = 20;
+
+// Ressourcen-URL wie Joplins Bild-Regel sie baut.
+const ruleOptions = {
+	resources: { [id]: { item: { id, updated_time: 1234, mime: 'application/gpx+xml' } } },
+	resourceBaseUrl: 'file:///data/resources/',
+	ResourceModel: { filename: (resource) => `${resource.id}.gpx` },
+};
+check('baut die Ressourcen-URL', resourceUrlFrom(ruleOptions, id) === `file:///data/resources/${id}.gpx?t=1234`, resourceUrlFrom(ruleOptions, id));
+check('bevorzugt itemIdToUrl', resourceUrlFrom({ ...ruleOptions, itemIdToUrl: () => 'joplin-content://x.gpx' }, id) === 'joplin-content://x.gpx');
+check('ohne bekannte Ressource keine URL', resourceUrlFrom({ resources: {} }, id) === '');
+
+const total = 23;
 console.log(`\n${total - bad}/${total} bestanden`);
 process.exit(bad ? 1 : 0);

@@ -130,24 +130,52 @@
 		map.textContent = message;
 	};
 
-	// Fetches an attached .gpx through the plugin process, which is the only side that can
-	// read resources.
+	// Two ways to get at an attached .gpx, because neither works everywhere:
+	//
+	// 1. Load the file straight from the viewer, using the URL the renderer also uses for
+	//    images. This is the only route that works on Android.
+	// 2. Ask the plugin process, which reads it through the data API. That is what works on
+	//    the desktop, while Android answers "Unsupported encoding: buffer".
+	const loadFromUrl = async (url) => {
+		const response = await fetch(url);
+		if (!response.ok) throw new Error(`HTTP ${response.status}`);
+		return response.text();
+	};
+
+	const loadFromPlugin = async (resourceId, contentScriptId) => {
+		if (typeof webviewApi === 'undefined') throw new Error('keine Plugin-Verbindung');
+
+		const response = await webviewApi.postMessage(contentScriptId, { type: 'gpxResource', id: resourceId });
+		if (!response || !response.ok) throw new Error(response && response.error ? response.error : 'unbekannter Fehler');
+		return response.text;
+	};
+
 	const loadResource = async (mapElement) => {
 		const resourceId = mapElement.dataset.gpxResource;
-		const contentScriptId = mapElement.dataset.contentScriptId;
 		if (!resourceId) return null;
-
-		if (typeof webviewApi === 'undefined') throw new Error('Angehängte GPX-Dateien brauchen die Plugin-Verbindung, die hier nicht verfügbar ist.');
 
 		mapElement.classList.add('geodata-gpx-error');
 		mapElement.textContent = 'Track wird geladen …';
 
-		const response = await webviewApi.postMessage(contentScriptId, { type: 'gpxResource', id: resourceId });
-		if (!response || !response.ok) throw new Error(response && response.error ? response.error : 'Die angehängte Datei konnte nicht gelesen werden.');
+		const problems = [];
+		for (const attempt of [
+			() => (mapElement.dataset.gpxUrl ? loadFromUrl(mapElement.dataset.gpxUrl) : Promise.reject(new Error('keine Ressourcen-URL - ist die Datei als [name](:/id) verlinkt?'))),
+			() => loadFromPlugin(resourceId, mapElement.dataset.contentScriptId),
+		]) {
+			try {
+				const text = await attempt();
+				if (text && text.trim()) {
+					mapElement.classList.remove('geodata-gpx-error');
+					mapElement.textContent = '';
+					return text;
+				}
+				problems.push('Datei war leer');
+			} catch (error) {
+				problems.push(error.message);
+			}
+		}
 
-		mapElement.classList.remove('geodata-gpx-error');
-		mapElement.textContent = '';
-		return response.text;
+		throw new Error(`Angehängte Datei nicht lesbar (${problems.join('; ')}).`);
 	};
 
 	const drawTrack = (container, mapElement, text) => {

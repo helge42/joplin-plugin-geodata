@@ -77,6 +77,10 @@ dauerhaft ohne Ort.
   ```
   ````
 
+  **Bitte die Link-Schreibweise `[name](:/id)` benutzen**, nicht die nackte ID: Joplin
+  erkennt nur so, dass die Datei zu dieser Notiz gehört. Ohne Link gilt sie als verwaist
+  und kann beim Aufräumen verlorengehen.
+
   Aufnahmepausen werden nicht als Luftlinie durchgezogen, sehr lange Tracks zum Zeichnen
   ausgedünnt (die Statistik rechnet mit allen Punkten). Ohne Netz bleibt die Kartenfläche
   leer, die Zahlen stehen trotzdem da.
