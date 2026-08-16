@@ -27,9 +27,11 @@ export const formatPairDms = (coordinates: Coordinates) => {
 };
 
 // Handed to the OS so the user's own maps app opens - works offline with OsmAnd etc.
+//
+// Plain "geo:lat,lon" as per RFC 5870. The "?q=lat,lon" suffix is Google's Android
+// extension (meant for geo:0,0?q=...) and some apps stumble over the combination.
 export const geoUri = (coordinates: Coordinates) => {
-	const base = `geo:${formatDecimal(coordinates.latitude)},${formatDecimal(coordinates.longitude)}`;
-	return `${base}?q=${formatDecimal(coordinates.latitude)},${formatDecimal(coordinates.longitude)}`;
+	return `geo:${formatDecimal(coordinates.latitude)},${formatDecimal(coordinates.longitude)}`;
 };
 
 export const osmUrl = (coordinates: Coordinates, zoom = 15) => {

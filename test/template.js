@@ -9,9 +9,9 @@ const render = (template, coordinates = berlin, place = '') => renderTemplate(te
 const cases = [
 	['{lat}, {lon}', '52.5163, 13.3777'],
 	['{alt}', '34'],
-	[defaultTemplate, '📍 [52.5163, 13.3777](geo:52.5163,13.3777?q=52.5163,13.3777)'],
+	[defaultTemplate, '📍 [52.5163, 13.3777](geo:52.5163,13.3777)'],
 	['{osm}', 'https://www.openstreetmap.org/?mlat=52.5163&mlon=13.3777#map=15/52.5163/13.3777'],
-	['{geo}', 'geo:52.5163,13.3777?q=52.5163,13.3777'],
+	['{geo}', 'geo:52.5163,13.3777'],
 	['{dms}', `52°30'58.7"N 13°22'39.7"E`],
 	['{date} {time}', '2026-08-15 14:35'],
 	// Unknown placeholders stay visible instead of leaving a hole in the note.
