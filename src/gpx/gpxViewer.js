@@ -164,7 +164,9 @@
 			return;
 		}
 
-		const map = window.L.map(mapElement, { attributionControl: true });
+		// fadeAnimation off: the tiles are faded in via opacity, and a webview that stumbles
+		// over that transition leaves the map black. Nothing is lost but the fade.
+		const map = window.L.map(mapElement, { attributionControl: true, fadeAnimation: false });
 		window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
 			maxZoom: 19,
 			attribution: '&copy; OpenStreetMap',

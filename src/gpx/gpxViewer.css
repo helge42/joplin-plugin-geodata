@@ -35,3 +35,14 @@
 	font-family: inherit;
 	font-size: 0.8em;
 }
+
+/* Joplin's note stylesheet contains "img { max-width: 100%; height: auto; }" for photos in
+   notes. Leaflet's tiles are images inside a container that has no size of its own - it
+   only positions via transform - so the percentage resolves against zero and the tiles
+   collapse to nothing. Their size is set inline by Leaflet, so undoing the limits here is
+   enough; it must be !important because the note stylesheet is loaded after ours. */
+.geodata-gpx img {
+	max-width: none !important;
+	max-height: none !important;
+	height: auto;
+}
