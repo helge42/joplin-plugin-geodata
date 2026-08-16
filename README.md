@@ -66,6 +66,17 @@ dauerhaft ohne Ort.
   ```
   ````
 
+  Statt das GPX hineinzukopieren, kann der Block auch auf eine **angehängte Datei**
+  verweisen — das ist für echte Tracks der bessere Weg, weil die Notiz sonst schnell um
+  Hunderte Kilobyte wächst. Die `.gpx` an die Notiz anhängen und den eingefügten Link in
+  den Block setzen:
+
+  ````markdown
+  ```gpx
+  [tour.gpx](:/a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6)
+  ```
+  ````
+
   Aufnahmepausen werden nicht als Luftlinie durchgezogen, sehr lange Tracks zum Zeichnen
   ausgedünnt (die Statistik rechnet mit allen Punkten). Ohne Netz bleibt die Kartenfläche
   leer, die Zahlen stehen trotzdem da.

@@ -130,22 +130,30 @@
 		map.textContent = message;
 	};
 
-	const renderBlock = (container) => {
-		if (container.dataset.geodataGpxDone === '1') return;
-		container.dataset.geodataGpxDone = '1';
+	// Fetches an attached .gpx through the plugin process, which is the only side that can
+	// read resources.
+	const loadResource = async (mapElement) => {
+		const resourceId = mapElement.dataset.gpxResource;
+		const contentScriptId = mapElement.dataset.contentScriptId;
+		if (!resourceId) return null;
 
-		const source = container.querySelector('.joplin-source');
-		const mapElement = container.querySelector('.geodata-gpx-map');
-		if (!source || !mapElement) return;
+		if (typeof webviewApi === 'undefined') throw new Error('Angehängte GPX-Dateien brauchen die Plugin-Verbindung, die hier nicht verfügbar ist.');
 
-		if (!window.L) {
-			showError(container, 'Kartenbibliothek (leaflet.js) wurde nicht geladen. Nach einer Neuinstallation des Plugins hilft meist ein Neustart von Joplin.');
-			return;
-		}
+		mapElement.classList.add('geodata-gpx-error');
+		mapElement.textContent = 'Track wird geladen …';
 
+		const response = await webviewApi.postMessage(contentScriptId, { type: 'gpxResource', id: resourceId });
+		if (!response || !response.ok) throw new Error(response && response.error ? response.error : 'Die angehängte Datei konnte nicht gelesen werden.');
+
+		mapElement.classList.remove('geodata-gpx-error');
+		mapElement.textContent = '';
+		return response.text;
+	};
+
+	const drawTrack = (container, mapElement, text) => {
 		let segments;
 		try {
-			segments = parsePoints(source.textContent);
+			segments = parsePoints(text);
 		} catch (error) {
 			showError(container, error.message);
 			return;
@@ -177,6 +185,29 @@
 
 		map.fitBounds(window.L.featureGroup(lines).getBounds(), { padding: [12, 12] });
 		renderStats(container.querySelector('.geodata-gpx-stats'), trackStats(segments));
+	};
+
+	const renderBlock = (container) => {
+		if (container.dataset.geodataGpxDone === '1') return;
+		container.dataset.geodataGpxDone = '1';
+
+		const source = container.querySelector('.joplin-source');
+		const mapElement = container.querySelector('.geodata-gpx-map');
+		if (!source || !mapElement) return;
+
+		if (!window.L) {
+			showError(container, 'Kartenbibliothek (leaflet.js) wurde nicht geladen. Nach einer Neuinstallation des Plugins hilft meist ein Neustart von Joplin.');
+			return;
+		}
+
+		if (!mapElement.dataset.gpxResource) {
+			drawTrack(container, mapElement, source.textContent);
+			return;
+		}
+
+		loadResource(mapElement)
+			.then(text => drawTrack(container, mapElement, text))
+			.catch(error => showError(container, error.message));
 	};
 
 	const renderAllNow = () => {

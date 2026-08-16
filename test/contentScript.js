@@ -1,8 +1,9 @@
 const MarkdownIt = require('markdown-it');
-const contentScript = require('../.test-build/gpx/contentScript').default;
+const { default: contentScript, resourceIdFrom } = require('../.test-build/gpx/contentScript');
 
+const context = { contentScriptId: 'geodata.gpx' };
 const markdownIt = new MarkdownIt();
-contentScript().plugin(markdownIt);
+contentScript(context).plugin(markdownIt);
 
 let bad = 0;
 const check = (name, condition, detail = '') => {
@@ -35,11 +36,26 @@ check('lässt Blöcke ohne Sprache in Ruhe', !plain.includes('geodata-gpx'));
 const upper = markdownIt.render('```GPX \n' + gpxSource + '\n```');
 check('erkennt GPX auch groß geschrieben', upper.includes('geodata-gpx'));
 
-const assets = contentScript().assets().map(asset => asset.name);
+// Ressourcen-Verweise: bare Link und die Markdown-Form, die Joplin beim Anhängen einfügt.
+const id = 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6';
+check('erkennt bare Ressource', resourceIdFrom(`:/${id}`) === id);
+check('erkennt Ressource mit Zeilenumbrüchen', resourceIdFrom(`\n  :/${id}\n`) === id);
+check('erkennt Markdown-Link', resourceIdFrom(`[tour.gpx](:/${id})`) === id);
+check('erkennt Anhang-Syntax mit Ausrufezeichen', resourceIdFrom(`![tour.gpx](:/${id})`) === id);
+check('erkennt Großschreibung', resourceIdFrom(`:/${id.toUpperCase()}`) === id);
+check('hält inline-GPX nicht für eine Ressource', resourceIdFrom('<gpx><trkpt lat="1" lon="2"/></gpx>') === '');
+check('lehnt zu kurze IDs ab', resourceIdFrom(':/abc') === '');
+
+const withResource = markdownIt.render('```gpx\n:/' + id + '\n```');
+check('gibt die Ressourcen-ID weiter', withResource.includes(`data-gpx-resource="${id}"`), withResource);
+check('gibt die Content-Script-ID weiter', withResource.includes('data-content-script-id="geodata.gpx"'));
+check('inline-Block hat keine Ressourcen-ID', rendered.includes('data-gpx-resource=""'));
+
+const assets = contentScript(context).assets().map(asset => asset.name);
 check('liefert die Assets in der richtigen Reihenfolge',
 	assets.join(',') === 'leaflet.css,leaflet.js,gpxViewer.css,gpxViewer.js',
 	assets.join(', '));
 
-const total = 10;
+const total = 20;
 console.log(`\n${total - bad}/${total} bestanden`);
 process.exit(bad ? 1 : 0);

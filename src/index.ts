@@ -97,6 +97,39 @@ const pluginProcessPosition = (): Promise<Coordinates | null> => new Promise((re
 	);
 });
 
+// The resource body crosses a process boundary on its way to the plugin, and arrives as a
+// Buffer, a serialised { type: 'Buffer', data: [...] }, a typed array or already as text
+// depending on the platform. Normalise all of it to a string.
+const decodeToText = (data: any): string => {
+	if (typeof data === 'string') return data;
+	if (!data) return '';
+
+	let bytes: Uint8Array = null;
+	if (data instanceof Uint8Array) bytes = data;
+	else if (Array.isArray(data)) bytes = Uint8Array.from(data);
+	else if (Array.isArray(data.data)) bytes = Uint8Array.from(data.data);
+	else if (data.buffer) bytes = new Uint8Array(data.buffer);
+
+	if (!bytes) return String(data);
+	if (typeof TextDecoder !== 'undefined') return new TextDecoder('utf-8').decode(bytes);
+
+	let text = '';
+	for (const byte of bytes) text += String.fromCharCode(byte);
+	return text;
+};
+
+// 20 MB is far beyond any sensible track and keeps a mis-linked video from being pushed
+// through the message channel.
+const MAX_RESOURCE_BYTES = 20 * 1024 * 1024;
+
+const readResourceText = async (resourceId: string) => {
+	const info = await joplin.data.get(['resources', resourceId], { fields: ['id', 'title', 'size'] });
+	if (info && info.size > MAX_RESOURCE_BYTES) throw new Error(`Die Datei ist mit ${Math.round(info.size / 1024 / 1024)} MB zu groß.`);
+
+	const file = await joplin.data.get(['resources', resourceId, 'file']);
+	return decodeToText(file && file.body !== undefined ? file.body : file);
+};
+
 // Editor commands only have a runtime while an editor is mounted. `selectedText` reads and
 // changes nothing, which makes it a safe probe for "can we insert right now?".
 const editorAvailable = async () => {
@@ -161,6 +194,21 @@ joplin.plugins.register({
 			'geodata.gpx',
 			'./gpx/contentScript.js',
 		);
+
+		// The note viewer cannot read resources itself, so it asks us for the file content
+		// of an attached .gpx.
+		await joplin.contentScripts.onMessage('geodata.gpx', async (message: any) => {
+			if (!message || message.type !== 'gpxResource') return { ok: false, error: 'Unbekannte Anfrage.' };
+
+			try {
+				const text = await readResourceText(message.id);
+				if (!text.trim()) return { ok: false, error: 'Die angehängte Datei ist leer.' };
+				return { ok: true, text };
+			} catch (error) {
+				console.error('Geodata: Ressource nicht lesbar:', error);
+				return { ok: false, error: `Angehängte Datei nicht lesbar: ${error.message || error}` };
+			}
+		});
 
 		const panel = await joplin.views.panels.create('geodata.panel');
 		await joplin.views.panels.setHtml(panel, panelHtml);

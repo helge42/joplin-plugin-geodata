@@ -206,9 +206,17 @@ Aufnahmepausen nicht als Luftlinie erscheinen; zum Zeichnen wird auf 2000 Punkte
 ausgedünnt, gerechnet wird mit allen. Der Anstieg summiert nur Zuwächse ab 3 m gegen den
 letzten akzeptierten Wert, sonst summiert sich GPS-Rauschen zu Fantasie-Höhenmetern.
 
-Offen: GPX aus einer **angehängten Datei** statt inline (spart Notizgröße, braucht
-`webviewApi.postMessage` und Ressourcen-Zugriff) und der **Bildexport** — `joplin.imaging`
-und `joplin.fs` sind desktop-only, auf Mobile bliebe nur eine `data:`-URL in der Notiz.
+**Angehängte Dateien (2026-08-16):** Enthält der Block nur einen Ressourcen-Verweis
+(`:/<32 hex>` oder `[tour.gpx](:/<32 hex>)`), holt das Viewer-Skript den Inhalt per
+`webviewApi.postMessage` beim Plugin-Prozess, der ihn mit
+`joplin.data.get(['resources', id, 'file'])` liest. Der Rumpf überquert dabei eine
+Prozessgrenze und kommt je nach Plattform als Buffer, als serialisiertes
+`{ type: 'Buffer', data: [...] }`, als typisiertes Array oder schon als Text an — deshalb
+normalisiert `decodeToText()` alle Formen. Dateien über 20 MB werden abgelehnt, damit ein
+falsch verlinktes Video nicht durch den Nachrichtenkanal gepresst wird.
+
+Offen: der **Bildexport** — `joplin.imaging` und `joplin.fs` sind desktop-only, auf Mobile
+bliebe nur eine `data:`-URL in der Notiz.
 
 Ursprüngliche Planung:
 

@@ -3,7 +3,15 @@
 //
 // Compiled via plugin.config.json -> extraScripts, because Joplin require()s this file.
 
-export default function() {
+// A block may hold the GPX itself or just point at an attached file, written either as a
+// bare resource link (":/<32 hex>") or as the Markdown link Joplin inserts when you attach
+// a file ("[track.gpx](:/<32 hex>)").
+export const resourceIdFrom = (content: string) => {
+	const match = /^\s*(?:!?\[[^\]]*\]\(\s*)?:\/([0-9a-f]{32})\s*\)?\s*$/i.exec(content || '');
+	return match ? match[1].toLowerCase() : '';
+};
+
+export default function(context: { contentScriptId: string }) {
 	return {
 		plugin: function(markdownIt: any) {
 			const defaultRender = markdownIt.renderer.rules.fence || function(tokens: any, idx: number, options: any, env: any, self: any) {
@@ -17,6 +25,8 @@ export default function() {
 				}
 
 				const source = markdownIt.utils.escapeHtml(token.content);
+				const resourceId = resourceIdFrom(token.content);
+				const escapeAttribute = markdownIt.utils.escapeHtml;
 
 				// The joplin-editable/joplin-source pair lets the rich text editor turn the
 				// rendered block back into the original fenced code. Joplin's own stylesheet
@@ -29,7 +39,11 @@ export default function() {
 							data-joplin-source-open="\`\`\`gpx&#10;"
 							data-joplin-source-close="\`\`\`"
 						>${source}</pre>
-						<div class="geodata-gpx-map"></div>
+						<div
+							class="geodata-gpx-map"
+							data-gpx-resource="${escapeAttribute(resourceId)}"
+							data-content-script-id="${escapeAttribute(context.contentScriptId)}"
+						></div>
 						<div class="geodata-gpx-stats"></div>
 					</div>
 				`;
