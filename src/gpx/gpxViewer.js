@@ -139,7 +139,7 @@
 		if (!source || !mapElement) return;
 
 		if (!window.L) {
-			showError(container, 'Kartenbibliothek nicht geladen.');
+			showError(container, 'Kartenbibliothek (leaflet.js) wurde nicht geladen. Nach einer Neuinstallation des Plugins hilft meist ein Neustart von Joplin.');
 			return;
 		}
 
@@ -179,7 +179,7 @@
 		renderStats(container.querySelector('.geodata-gpx-stats'), trackStats(segments));
 	};
 
-	const renderAll = () => {
+	const renderAllNow = () => {
 		const blocks = document.querySelectorAll('.geodata-gpx');
 		for (const block of blocks) {
 			try {
@@ -189,6 +189,25 @@
 			}
 		}
 	};
+
+	// The asset scripts are not guaranteed to have finished executing when this file runs,
+	// so window.L may not exist yet. Waiting for it is more robust than relying on load
+	// order; after the timeout renderBlock() shows its "not loaded" message.
+	const LEAFLET_TIMEOUT = 10000;
+	const whenLeafletReady = (callback) => {
+		if (window.L) return callback();
+
+		let waited = 0;
+		const timer = setInterval(() => {
+			if (window.L || waited >= LEAFLET_TIMEOUT) {
+				clearInterval(timer);
+				callback();
+			}
+			waited += 50;
+		}, 50);
+	};
+
+	const renderAll = () => whenLeafletReady(renderAllNow);
 
 	// The viewer replaces its content on every note update, so this has to run again -
 	// renderBlock() is idempotent per container.
