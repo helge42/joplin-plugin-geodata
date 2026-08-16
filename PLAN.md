@@ -211,7 +211,11 @@ der Track auf **zwei Wegen** versucht, weil keiner auf beiden Plattformen geht:
 
 1. Der Viewer lädt die Datei direkt über die URL, die der Renderer auch für Bilder baut
    (`ruleOptions.resources` / `resourceBaseUrl` / `itemIdToUrl`, siehe Joplins
-   `imageReplacement`). **Der einzige Weg, der auf Android funktioniert.**
+   `imageReplacement`) — und zwar **per `XMLHttpRequest`, nicht per `fetch`**.
+   Chromium unterstützt das Schema `file://` in `fetch` überhaupt nicht, das endet immer
+   mit „Failed to fetch“; XHR liest es, weil Joplin dem WebView Dateizugriff geben muss,
+   sonst würden Bilder in Notizen nicht erscheinen. **Der einzige Weg, der auf Android
+   funktioniert** (am Gerät bestätigt, 2026-08-17).
 2. Nachfrage beim Plugin-Prozess per `webviewApi.postMessage`, der
    `joplin.data.get(['resources', id, 'file'])` benutzt. **Funktioniert auf dem Desktop**,
    auf Android antwortet Joplin mit `Unsupported encoding: buffer` — der mobile fsDriver
