@@ -142,6 +142,24 @@
 		return response.text();
 	};
 
+	// Chromium's fetch() cannot read file:// URLs at all - that is where "Failed to fetch"
+	// on Android comes from. XMLHttpRequest can, as long as the app allows file access,
+	// which Joplin does (otherwise images in notes would not show either). A file:// read
+	// reports status 0 on success.
+	const loadWithXhr = (url) => new Promise((resolve, reject) => {
+		const request = new XMLHttpRequest();
+		request.open('GET', url, true);
+		request.timeout = 15000;
+		request.onload = () => {
+			const ok = request.status === 0 || (request.status >= 200 && request.status < 300);
+			if (ok && request.responseText) resolve(request.responseText);
+			else reject(new Error(`XHR-Status ${request.status}`));
+		};
+		request.onerror = () => reject(new Error('XHR blockiert'));
+		request.ontimeout = () => reject(new Error('XHR Zeitüberschreitung'));
+		request.send();
+	});
+
 	const loadFromPlugin = async (resourceId, contentScriptId) => {
 		if (typeof webviewApi === 'undefined') throw new Error('keine Plugin-Verbindung');
 
@@ -157,9 +175,13 @@
 		mapElement.classList.add('geodata-gpx-error');
 		mapElement.textContent = 'Track wird geladen …';
 
+		const url = mapElement.dataset.gpxUrl;
+		const noUrl = () => Promise.reject(new Error('keine Ressourcen-URL - ist die Datei als [name](:/id) verlinkt?'));
+
 		const problems = [];
 		for (const attempt of [
-			() => (mapElement.dataset.gpxUrl ? loadFromUrl(mapElement.dataset.gpxUrl) : Promise.reject(new Error('keine Ressourcen-URL - ist die Datei als [name](:/id) verlinkt?'))),
+			() => (url ? loadWithXhr(url) : noUrl()),
+			() => (url ? loadFromUrl(url) : noUrl()),
 			() => loadFromPlugin(resourceId, mapElement.dataset.contentScriptId),
 		]) {
 			try {
@@ -175,7 +197,10 @@
 			}
 		}
 
-		throw new Error(`Angehängte Datei nicht lesbar (${problems.join('; ')}).`);
+		// The URL goes into the message: when every route fails it is the one piece of
+		// information that says whether the address was even plausible.
+		const shortUrl = url ? `${url.slice(0, 70)}${url.length > 70 ? '…' : ''}` : 'keine';
+		throw new Error(`Angehängte Datei nicht lesbar (${problems.join('; ')}). URL: ${shortUrl}`);
 	};
 
 	const drawTrack = (container, mapElement, text) => {
