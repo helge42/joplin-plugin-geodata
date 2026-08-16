@@ -218,12 +218,16 @@
 	};
 
 	const renderBlock = (container) => {
-		if (container.dataset.geodataGpxDone === '1') return;
-		container.dataset.geodataGpxDone = '1';
-
 		const source = container.querySelector('.joplin-source');
 		const mapElement = container.querySelector('.geodata-gpx-map');
 		if (!source || !mapElement) return;
+
+		// The marker sits on the map element, not on the container: when the viewer
+		// re-renders the note it replaces these nodes, and a fresh element must be drawn
+		// again. A flag on the container would survive the replacement and leave an empty
+		// box behind.
+		if (mapElement.dataset.geodataGpxDone === '1') return;
+		mapElement.dataset.geodataGpxDone = '1';
 
 		if (!window.L) {
 			showError(container, 'Kartenbibliothek (leaflet.js) wurde nicht geladen. Nach einer Neuinstallation des Plugins hilft meist ein Neustart von Joplin.');
@@ -270,9 +274,21 @@
 
 	const renderAll = () => whenLeafletReady(renderAllNow);
 
-	// The viewer replaces its content on every note update, so this has to run again -
-	// renderBlock() is idempotent per container.
 	document.addEventListener('joplin-noteDidUpdate', renderAll);
+
+	// The mobile viewer rebuilds the note body more than once and not every pass announces
+	// itself with joplin-noteDidUpdate - the map would be drawn, then thrown away with the
+	// old DOM, leaving an empty box. Watching the document catches every pass; the scan is
+	// cheap because renderBlock() returns immediately for maps that are already drawn.
+	if (typeof MutationObserver !== 'undefined') {
+		let pending = null;
+		const observer = new MutationObserver(() => {
+			if (pending) clearTimeout(pending);
+			pending = setTimeout(renderAll, 150);
+		});
+		observer.observe(document.body, { childList: true, subtree: true });
+	}
+
 	if (document.readyState === 'loading') {
 		document.addEventListener('DOMContentLoaded', renderAll);
 	} else {
