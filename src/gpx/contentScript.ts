@@ -38,7 +38,10 @@ export const openResourceLink = (ruleOptions: any, resourceId: string, escapeHtm
 	const href = `joplin://${resourceId}`;
 	const js = `${post}(${JSON.stringify(href)}, { resourceId: ${JSON.stringify(resourceId)} }); return false;`;
 
-	return `<a class="geodata-gpx-open" data-from-md data-resource-id="${escapeHtml(resourceId)}" href="#" onclick="${escapeHtml(js)}">Track in anderer App öffnen</a>`;
+	// The label is left empty on purpose: the content script runs in the renderer and has no
+	// access to the settings, so it cannot know the user's language. gpxViewer.js fills it in
+	// once it has fetched the strings from the plugin process.
+	return `<a class="geodata-gpx-open" data-from-md data-resource-id="${escapeHtml(resourceId)}" href="#" onclick="${escapeHtml(js)}"></a>`;
 };
 
 export default function(context: { contentScriptId: string }) {

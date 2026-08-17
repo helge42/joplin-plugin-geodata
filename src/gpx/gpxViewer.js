@@ -82,9 +82,28 @@
 		return;
 	}
 
+	// The content script cannot read the settings, so the viewer asks the plugin process for
+	// the dictionary once and falls back to the English keys' own text if that fails.
+	let dictionary = {};
+	const t = (key, params) => {
+		const template = dictionary[key] !== undefined ? dictionary[key] : key;
+		if (!params) return template;
+		return template.replace(/\{(\w+)\}/g, (match, name) => (name in params ? String(params[name]) : match));
+	};
+
+	const loadStrings = async (contentScriptId) => {
+		if (Object.keys(dictionary).length || typeof webviewApi === 'undefined') return;
+		try {
+			const response = await webviewApi.postMessage(contentScriptId, { type: 'strings' });
+			if (response && response.strings) dictionary = response.strings;
+		} catch (error) {
+			console.info('Geodata GPX: strings unavailable', error);
+		}
+	};
+
 	const parsePoints = (text) => {
 		const doc = new DOMParser().parseFromString(text, 'application/xml');
-		if (doc.getElementsByTagName('parsererror').length) throw new Error('GPX konnte nicht gelesen werden (kein gültiges XML).');
+		if (doc.getElementsByTagName('parsererror').length) throw new Error(t('gpx.invalidXml'));
 
 		const readPoint = (node) => {
 			const lat = parseFloat(node.getAttribute('lat'));
@@ -118,9 +137,9 @@
 
 	const renderStats = (element, stats) => {
 		const parts = [formatDistance(stats.distance)];
-		if (stats.ascent >= 10) parts.push(`${Math.round(stats.ascent)} m bergauf`);
+		if (stats.ascent >= 10) parts.push(t('gpx.ascent', { metres: Math.round(stats.ascent) }));
 		if (stats.duration) parts.push(formatDuration(stats.duration));
-		parts.push(`${stats.count} Punkte`);
+		parts.push(t('gpx.points', { count: stats.count }));
 		element.textContent = parts.join(' · ');
 	};
 
@@ -153,18 +172,18 @@
 		request.onload = () => {
 			const ok = request.status === 0 || (request.status >= 200 && request.status < 300);
 			if (ok && request.responseText) resolve(request.responseText);
-			else reject(new Error(`XHR-Status ${request.status}`));
+			else reject(new Error(`XHR status ${request.status}`));
 		};
-		request.onerror = () => reject(new Error('XHR blockiert'));
-		request.ontimeout = () => reject(new Error('XHR Zeitüberschreitung'));
+		request.onerror = () => reject(new Error('XHR blocked'));
+		request.ontimeout = () => reject(new Error('XHR timed out'));
 		request.send();
 	});
 
 	const loadFromPlugin = async (resourceId, contentScriptId) => {
-		if (typeof webviewApi === 'undefined') throw new Error('keine Plugin-Verbindung');
+		if (typeof webviewApi === 'undefined') throw new Error(t('gpx.noPluginConnection'));
 
 		const response = await webviewApi.postMessage(contentScriptId, { type: 'gpxResource', id: resourceId });
-		if (!response || !response.ok) throw new Error(response && response.error ? response.error : 'unbekannter Fehler');
+		if (!response || !response.ok) throw new Error(response && response.error ? response.error : t('gpx.unknownError'));
 		return response.text;
 	};
 
@@ -173,10 +192,10 @@
 		if (!resourceId) return null;
 
 		mapElement.classList.add('geodata-gpx-error');
-		mapElement.textContent = 'Track wird geladen …';
+		mapElement.textContent = t('gpx.loading');
 
 		const url = mapElement.dataset.gpxUrl;
-		const noUrl = () => Promise.reject(new Error('keine Ressourcen-URL - ist die Datei als [name](:/id) verlinkt?'));
+		const noUrl = () => Promise.reject(new Error(t('gpx.noUrl')));
 
 		const problems = [];
 		for (const attempt of [
@@ -191,7 +210,7 @@
 					mapElement.textContent = '';
 					return text;
 				}
-				problems.push('Datei war leer');
+				problems.push(t('gpx.emptyFile'));
 			} catch (error) {
 				problems.push(error.message);
 			}
@@ -199,8 +218,8 @@
 
 		// The URL goes into the message: when every route fails it is the one piece of
 		// information that says whether the address was even plausible.
-		const shortUrl = url ? `${url.slice(0, 70)}${url.length > 70 ? '…' : ''}` : 'keine';
-		throw new Error(`Angehängte Datei nicht lesbar (${problems.join('; ')}). URL: ${shortUrl}`);
+		const shortUrl = url ? `${url.slice(0, 70)}${url.length > 70 ? '…' : ''}` : 'none';
+		throw new Error(t('gpx.unreadable', { problems: problems.join('; '), url: shortUrl }));
 	};
 
 	const drawTrack = (container, mapElement, text) => {
@@ -213,7 +232,7 @@
 		}
 
 		if (!segments.length) {
-			showError(container, 'Keine Punkte im GPX gefunden.');
+			showError(container, t('gpx.noPoints'));
 			return;
 		}
 
@@ -252,7 +271,7 @@
 		const link = document.createElement('a');
 		link.className = 'geodata-gpx-start';
 		link.href = `geo:${start.lat.toFixed(6)},${start.lon.toFixed(6)}`;
-		link.textContent = 'Startpunkt in Karten-App';
+		link.textContent = t('gpx.startPoint');
 		actions.appendChild(link);
 	};
 
@@ -269,7 +288,7 @@
 		mapElement.dataset.geodataGpxDone = '1';
 
 		if (!window.L) {
-			showError(container, 'Kartenbibliothek (leaflet.js) wurde nicht geladen. Nach einer Neuinstallation des Plugins hilft meist ein Neustart von Joplin.');
+			showError(container, t('gpx.noLeaflet'));
 			return;
 		}
 
@@ -283,9 +302,17 @@
 			.catch(error => showError(container, error.message));
 	};
 
-	const renderAllNow = () => {
+	const renderAllNow = async () => {
 		const blocks = document.querySelectorAll('.geodata-gpx');
+		if (blocks.length) {
+			const first = blocks[0].querySelector('.geodata-gpx-map');
+			await loadStrings(first ? first.dataset.contentScriptId : '');
+		}
+
 		for (const block of blocks) {
+			const openLink = block.querySelector('.geodata-gpx-open');
+			if (openLink && !openLink.textContent) openLink.textContent = t('gpx.openInApp');
+
 			try {
 				renderBlock(block);
 			} catch (error) {

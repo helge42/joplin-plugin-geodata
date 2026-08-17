@@ -308,6 +308,25 @@ link is dead. There is no portable way to hand it a real link (desktop TinyMCE c
 through the `editor.codeView` setting (`false` means rich text; it exists for desktop **and**
 mobile), and then the link syntax is stripped and only the label inserted.
 
+### Plugins have to bring their own translations
+
+Joplin's core is translated with gettext (`.pot`/`.po`, Poedit), but plugins cannot hook
+into it, and the plugin API exposes nothing for translation. The
+[forum thread on translatable plugins](https://discourse.joplinapp.org/t/translatable-plugins/13658)
+ends without an official mechanism or a community standard; the maintainer's advice is to
+"just implement a simple string mapping" like VS Code extensions do, and he advises against
+i18next and friends.
+
+So `src/i18n/index.ts` holds one dictionary per language, English is the source, and
+missing keys fall back to English. The language comes from
+`joplin.settings.globalValue('locale')`, read once at startup — changing Joplin's language
+needs a restart.
+
+The awkward part is the note viewer: the markdown-it content script runs in the renderer
+and cannot read settings, so it cannot know the language. `gpxViewer.js` therefore asks the
+plugin process for the dictionary through `webviewApi.postMessage` before drawing, and the
+"open in another app" link is emitted with an empty label that the viewer fills in.
+
 ### Editor availability can be queried, if only indirectly
 
 The plugin API has no "editor is open" state. But `CommandService.execute` throws

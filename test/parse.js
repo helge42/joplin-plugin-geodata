@@ -1,4 +1,8 @@
 const { parseLocation } = require('../.test-build/location/parse');
+const { createTranslate, englishDictionary } = require('../.test-build/i18n');
+
+// The parser returns keys; the tests read the English texts so failures stay legible.
+const t = createTranslate(englishDictionary());
 
 const cases = [
 	['geo:52.5163,13.3777', 52.5163, 13.3777],
@@ -36,7 +40,7 @@ let bad = 0;
 const close = (a, b) => Math.abs(a - b) < 0.0001;
 
 for (const [input, lat, lon, alt] of cases) {
-	const result = parseLocation(input);
+	const result = parseLocation(input, t);
 	const c = result.coordinates;
 	const ok = c && close(c.latitude, lat) && close(c.longitude, lon) && (alt === undefined || c.altitude === alt);
 	if (!ok) {
@@ -48,7 +52,7 @@ for (const [input, lat, lon, alt] of cases) {
 }
 
 for (const input of failures) {
-	const result = parseLocation(input);
+	const result = parseLocation(input, t);
 	if (result.coordinates) {
 		bad++;
 		console.log(`FAIL  ${JSON.stringify(input)} hätte scheitern sollen, ergab ${result.coordinates.latitude}, ${result.coordinates.longitude}`);

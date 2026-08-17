@@ -1,18 +1,21 @@
 import { Coordinates, ParseResult, isValidLatitude, isValidLongitude } from './types';
+import { Translate } from '../i18n';
 
 // Parses whatever the user pasted into the panel: a geo: URI shared from a maps app,
 // a Google/OSM/Apple link, plain decimal degrees, or degrees/minutes/seconds.
 //
 // Everything runs offline. Shortened links (maps.app.goo.gl, goo.gl/maps) cannot be
 // resolved without a network round-trip and are rejected with an explanatory message.
+//
+// Messages come from the caller's translate function so the parser stays free of prose.
 
 const fail = (error: string): ParseResult => ({ coordinates: null, source: '', error });
 const succeed = (coordinates: Coordinates, source: string): ParseResult => ({ coordinates, source, error: '' });
 
-const build = (latitude: number, longitude: number, altitude: number | null, source: string): ParseResult => {
-	if (!isValidLatitude(latitude)) return fail(`Breitengrad außerhalb -90..90: ${latitude}`);
-	if (!isValidLongitude(longitude)) return fail(`Längengrad außerhalb -180..180: ${longitude}`);
-	return succeed({ latitude, longitude, altitude }, source);
+const build = (t: Translate, latitude: number, longitude: number, altitude: number | null, source: string): ParseResult => {
+	if (!isValidLatitude(latitude)) return fail(t('parse.latitudeRange', { value: latitude }));
+	if (!isValidLongitude(longitude)) return fail(t('parse.longitudeRange', { value: longitude }));
+	return succeed({ latitude, longitude, altitude }, t(source));
 };
 
 const toNumber = (raw: string | undefined) => {
@@ -44,14 +47,14 @@ const orderPair = (
 	return { latitude: first.value, longitude: second.value };
 };
 
-const parseGeoUri = (text: string): ParseResult | null => {
+const parseGeoUri = (text: string, t: Translate): ParseResult | null => {
 	// geo:52.5163,13.3777,34;u=15  and  geo:0,0?q=52.5163,13.3777(Brandenburger Tor)
 	const query = /geo:[^?\s]*\?[^#\s]*\bq=(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/i.exec(text);
-	if (query) return build(Number(query[1]), Number(query[2]), null, 'geo:-URI (q=)');
+	if (query) return build(t, Number(query[1]), Number(query[2]), null, 'parse.source.geoUriQuery');
 
 	const plain = /geo:\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)(?:\s*,\s*(-?\d+(?:\.\d+)?))?/i.exec(text);
 	if (plain) {
-		const coordinates = build(Number(plain[1]), Number(plain[2]), toNumber(plain[3]), 'geo:-URI');
+		const coordinates = build(t, Number(plain[1]), Number(plain[2]), toNumber(plain[3]), 'parse.source.geoUri');
 		// "geo:0,0" alone carries no position - it is only a container for a ?q= parameter.
 		if (coordinates.coordinates && plain[1] === '0' && plain[2] === '0') return null;
 		return coordinates;
@@ -59,11 +62,11 @@ const parseGeoUri = (text: string): ParseResult | null => {
 	return null;
 };
 
-const parseMapUrl = (text: string): ParseResult | null => {
+const parseMapUrl = (text: string, t: Translate): ParseResult | null => {
 	if (!/https?:\/\//i.test(text)) return null;
 
 	if (/(?:maps\.app\.goo\.gl|goo\.gl\/maps|g\.co\/kgs)/i.test(text)) {
-		return fail('Kurzlinks enthalten keine Koordinaten. Bitte den Link in der Karten-App öffnen und die vollständige Adresse oder die Koordinaten kopieren.');
+		return fail(t('parse.shortLink'));
 	}
 
 	// OpenStreetMap: ?mlat=52.5163&mlon=13.3777 and /#map=15/52.5163/13.3777.
@@ -71,27 +74,27 @@ const parseMapUrl = (text: string): ParseResult | null => {
 	// user meant, while #map= is only the viewport it happened to be shown in.
 	const mlat = /[?&#]mlat=(-?\d+(?:\.\d+)?)/i.exec(text);
 	const mlon = /[?&#]mlon=(-?\d+(?:\.\d+)?)/i.exec(text);
-	if (mlat && mlon) return build(Number(mlat[1]), Number(mlon[1]), null, 'OpenStreetMap-Marker');
+	if (mlat && mlon) return build(t, Number(mlat[1]), Number(mlon[1]), null, 'parse.source.osmMarker');
 
 	const osmHash = /[#&]map=[\d.]+\/(-?\d+(?:\.\d+)?)\/(-?\d+(?:\.\d+)?)/i.exec(text);
-	if (osmHash) return build(Number(osmHash[1]), Number(osmHash[2]), null, 'OpenStreetMap-Link');
+	if (osmHash) return build(t, Number(osmHash[1]), Number(osmHash[2]), null, 'parse.source.osmLink');
 
 	// Google Maps place link: !3d52.5163!4d13.3777 (the actual place, not the viewport)
 	const placeData = /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/.exec(text);
-	if (placeData) return build(Number(placeData[1]), Number(placeData[2]), null, 'Google-Maps-Ort');
+	if (placeData) return build(t, Number(placeData[1]), Number(placeData[2]), null, 'parse.source.googlePlace');
 
 	// Google Maps viewport: /@52.5163,13.3777,15z
 	const at = /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/.exec(text);
-	if (at) return build(Number(at[1]), Number(at[2]), null, 'Google-Maps-Kartenmitte');
+	if (at) return build(t, Number(at[1]), Number(at[2]), null, 'parse.source.googleCentre');
 
 	// Generic query parameters used by Google, Apple, Bing and others.
 	const params = /[?&](?:q|ll|sll|center|daddr|saddr|cp|point)=(-?\d+(?:\.\d+)?)\s*[,~]\s*(-?\d+(?:\.\d+)?)/i.exec(text);
-	if (params) return build(Number(params[1]), Number(params[2]), null, 'Karten-Link');
+	if (params) return build(t, Number(params[1]), Number(params[2]), null, 'parse.source.mapLink');
 
-	return fail('In diesem Link wurden keine Koordinaten gefunden.');
+	return fail(t('parse.noneInLink'));
 };
 
-const parseDms = (text: string): ParseResult | null => {
+const parseDms = (text: string, t: Translate): ParseResult | null => {
 	// 52°30'58.7"N 13°22'39.7"E - minutes and seconds are optional, the hemisphere
 	// letter may come before or after the number.
 	//
@@ -116,10 +119,10 @@ const parseDms = (text: string): ParseResult | null => {
 
 	if (found.length !== 2) return null;
 	const { latitude, longitude } = orderPair(found[0], found[1]);
-	return build(latitude, longitude, null, 'Grad/Minuten/Sekunden');
+	return build(t, latitude, longitude, null, 'parse.source.dms');
 };
 
-const parseDecimalPair = (text: string): ParseResult | null => {
+const parseDecimalPair = (text: string, t: Translate): ParseResult | null => {
 	// Accept German decimal commas when the two numbers are separated by whitespace
 	// or a semicolon ("52,5163 13,3777") - with a comma separator it is ambiguous.
 	const normalised = /^\s*-?\d+,\d+\s*[;\s]\s*-?\d+,\d+\s*$/.test(text)
@@ -132,18 +135,18 @@ const parseDecimalPair = (text: string): ParseResult | null => {
 	const first = applyHemisphere(Number(pair[2]), pair[1] || pair[3]);
 	const second = applyHemisphere(Number(pair[5]), pair[4] || pair[6]);
 	const { latitude, longitude } = orderPair(first, second);
-	return build(latitude, longitude, null, 'Dezimalgrad');
+	return build(t, latitude, longitude, null, 'parse.source.decimal');
 };
 
-export const parseLocation = (input: string): ParseResult => {
+export const parseLocation = (input: string, t: Translate): ParseResult => {
 	const text = (input || '').trim();
-	if (!text) return fail('Bitte etwas einfügen.');
+	if (!text) return fail(t('parse.empty'));
 
 	const matchers = [parseGeoUri, parseMapUrl, parseDms, parseDecimalPair];
 	for (const matcher of matchers) {
-		const result = matcher(text);
+		const result = matcher(text, t);
 		if (result) return result;
 	}
 
-	return fail('Keine Koordinaten erkannt. Unterstützt werden geo:-URIs, Google-/OSM-Links, "52.5163, 13.3777" und 52°30\'58"N 13°22\'39"E.');
+	return fail(t('parse.nothingFound'));
 };

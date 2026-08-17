@@ -4,15 +4,15 @@ import { formatDecimal, formatPairDms, geoUri, osmUrl } from './format';
 // Placeholders available in the insert template. Dates are deliberately not localised:
 // a travel journal is read chronologically, and ISO dates sort correctly in a text file.
 export const placeholders = {
-	'{lat}': 'Breite, z. B. 52.5163',
-	'{lon}': 'Länge, z. B. 13.3777',
-	'{alt}': 'Höhe in Metern, leer wenn unbekannt',
-	'{dms}': 'Grad/Minuten/Sekunden, z. B. 52°30\'58.7"N 13°22\'39.7"E',
-	'{geo}': 'geo:-URI, öffnet die Karten-App des Geräts',
-	'{osm}': 'Link auf OpenStreetMap',
-	'{date}': 'Datum, z. B. 2026-08-15',
-	'{time}': 'Uhrzeit, z. B. 14:35',
-	'{place}': 'Ortsname (fragt OpenStreetMap, braucht Netz)',
+	'{lat}': 'latitude, e.g. 52.5163',
+	'{lon}': 'longitude, e.g. 13.3777',
+	'{alt}': 'altitude in metres, empty when unknown',
+	'{dms}': 'degrees/minutes/seconds, e.g. 52°30\'58.7"N 13°22\'39.7"E',
+	'{geo}': 'geo: URI, opens the device maps app',
+	'{osm}': 'link to OpenStreetMap',
+	'{date}': 'date, e.g. 2026-08-15',
+	'{time}': 'time, e.g. 14:35',
+	'{place}': 'place name (asks OpenStreetMap, needs a network)',
 };
 
 // Confirmed on Joplin-Android 3.6.21: a geo: link in the rendered note opens the device's

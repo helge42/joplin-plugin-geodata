@@ -80,8 +80,8 @@ place forever.
   recognises that the file belongs to this note. Without it the file counts as orphaned and
   can be removed when Joplin cleans up.
 
-  Below the map you get **"Startpunkt in Karten-App"**, and for an attached file also
-  **"Track in anderer App öffnen"** — that hands the `.gpx` to the system's app chooser
+  Below the map you get **"Start point in maps app"**, and for an attached file also
+  **"Open track in another app"** — that hands the `.gpx` to the system's app chooser
   through Joplin's own attachment handling, so it can go straight into OsmAnd.
 
   Gaps in a recording are not drawn as straight lines across the map, and very long tracks
@@ -89,6 +89,16 @@ place forever.
   map area stays empty, but the numbers are there.
 - **Swap latitude/longitude** and **clear** (with a confirming second tap)
 - A **diagnostics** section that checks the plugin webview's environment and location access
+
+## Languages
+
+English and German. The plugin follows Joplin's own language setting and falls back to
+English for anything else; a restart is needed after changing the language.
+
+Adding a language means one block in `src/i18n/index.ts` — copy the English keys, translate
+the values, and register the file under its language code. Missing keys fall back to
+English, so a partial translation is still useful. Joplin has no translation mechanism for
+plugins, so this is a plain string map rather than gettext.
 
 ## Installation
 

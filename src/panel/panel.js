@@ -4,6 +4,15 @@
 (() => {
 	const $ = (id) => document.getElementById(id);
 
+	// The dictionary is handed over in a data attribute so the strings are available
+	// synchronously, without a round trip to the plugin process.
+	const dictionary = JSON.parse($('geodata-root').dataset.strings || '{}');
+	const t = (key, params) => {
+		const template = dictionary[key] !== undefined ? dictionary[key] : key;
+		if (!params) return template;
+		return template.replace(/\{(\w+)\}/g, (match, name) => (name in params ? String(params[name]) : match));
+	};
+
 	const fields = {
 		latitude: $('field-latitude'),
 		longitude: $('field-longitude'),
@@ -45,7 +54,7 @@
 		fields.longitude.value = latlng.lng.toFixed(6);
 		dirty = true;
 		placeMarker(latlng.lat, latlng.lng);
-		setMessage('Position gewählt - zum Übernehmen speichern.', '');
+		setMessage(t('panel.picked'), '');
 	};
 
 	function placeMarker(latitude, longitude) {
@@ -63,7 +72,7 @@
 	const ensureMap = () => {
 		if (map) return map;
 		if (!window.L) {
-			setMapHint('Kartenbibliothek nicht geladen.');
+			setMapHint(t('panel.noLeaflet'));
 			return null;
 		}
 
@@ -78,7 +87,7 @@
 			tileErrors += 1;
 			// A single failure is normal at the edges of the viewport; a run of them means
 			// there is no network. Editing keeps working either way.
-			if (tileErrors > 4) setMapHint('Keine Kartenkacheln - offline? Bearbeiten und Speichern geht trotzdem.');
+			if (tileErrors > 4) setMapHint(t('panel.noTiles'));
 		});
 		tiles.on('tileload', () => { tileErrors = 0; setMapHint(''); });
 		tiles.addTo(map);
@@ -115,7 +124,7 @@
 	const setMapVisible = (visible, persist) => {
 		mapVisible = visible;
 		$('map').style.display = visible ? '' : 'none';
-		$('button-map-toggle').textContent = visible ? 'Karte ausblenden' : 'Karte anzeigen';
+		$('button-map-toggle').textContent = visible ? t('panel.hideMap') : t('panel.showMap');
 		if (!visible) setMapHint('');
 		if (visible && state) updateMap(state);
 		if (persist) void webviewApi.postMessage({ type: 'setShowMap', value: visible });
@@ -142,10 +151,10 @@
 	const render = (next) => {
 		state = next;
 
-		$('note-title').textContent = next.noteTitle || 'Keine Notiz ausgewählt';
+		$('note-title').textContent = next.noteTitle || t('panel.noNote');
 		$('status').textContent = next.hasCoordinates
 			? `${next.latitude}, ${next.longitude}`
-			: 'Keine Geodaten hinterlegt';
+			: t('panel.noCoordinates');
 		$('status').classList.toggle('empty', !next.hasCoordinates);
 
 		$('readout').hidden = !next.hasCoordinates;
@@ -169,7 +178,7 @@
 	const refreshInsertAvailability = async () => {
 		const available = await webviewApi.postMessage({ type: 'editorAvailable' });
 		$('button-insert').disabled = !available;
-		$('insert-hint').textContent = available ? '' : 'Zum Einfügen die Notiz im Bearbeiten-Modus öffnen.';
+		$('insert-hint').textContent = available ? '' : t('panel.editorClosed');
 	};
 
 	const send = async (message) => {
@@ -184,7 +193,7 @@
 
 	const disarmClear = () => {
 		clearArmed = false;
-		$('button-clear').textContent = 'Löschen';
+		$('button-clear').textContent = t('panel.clear');
 		$('button-clear').classList.remove('danger');
 	};
 
@@ -248,13 +257,13 @@
 		fields.latitude.value = fields.longitude.value;
 		fields.longitude.value = latitude;
 		dirty = true;
-		setMessage('Getauscht - zum Übernehmen speichern.', '');
+		setMessage(t('panel.swapped'), '');
 	});
 
 	$('button-clear').addEventListener('click', () => {
 		if (!clearArmed) {
 			clearArmed = true;
-			$('button-clear').textContent = 'Wirklich löschen?';
+			$('button-clear').textContent = t('panel.clearConfirm');
 			$('button-clear').classList.add('danger');
 			setTimeout(disarmClear, 4000);
 			return;
@@ -268,14 +277,14 @@
 	$('button-locate').addEventListener('click', () => {
 		const button = $('button-locate');
 		if (!navigator.geolocation) {
-			setMessage('Kein Standortzugriff in diesem Plugin-Fenster. Standort in der Karten-App teilen und unten einfügen.', 'error');
+			setMessage(t('panel.locateUnavailable'), 'error');
 			return;
 		}
 
 		const label = button.textContent;
 		const restore = () => { button.disabled = false; button.textContent = label; };
 		button.disabled = true;
-		button.textContent = 'Standort wird ermittelt …';
+		button.textContent = t('panel.locating');
 		setMessage('', '');
 
 		navigator.geolocation.getCurrentPosition(
@@ -291,11 +300,11 @@
 				dirty = true;
 				placeMarker(position.coords.latitude, position.coords.longitude);
 				if (map) map.setView([position.coords.latitude, position.coords.longitude], Math.max(map.getZoom(), DEFAULT_ZOOM));
-				setMessage(`Standort ermittelt (±${Math.round(position.coords.accuracy)} m) - zum Übernehmen speichern.`, '');
+				setMessage(t('panel.located', { accuracy: Math.round(position.coords.accuracy) }), '');
 			},
 			(error) => {
 				restore();
-				setMessage(`Standort nicht verfügbar (${error.message || `Code ${error.code}`}). Alternativ unten einfügen.`, 'error');
+				setMessage(t('panel.locateFailed', { reason: error.message || `code ${error.code}` }), 'error');
 			},
 			{ enableHighAccuracy: true, timeout: 20000, maximumAge: 30000 },
 		);
@@ -305,9 +314,9 @@
 
 	const probeImage = (url) => new Promise((resolve) => {
 		const image = new Image();
-		const timer = setTimeout(() => resolve('Zeitüberschreitung'), 8000);
+		const timer = setTimeout(() => resolve('timed out'), 8000);
 		image.onload = () => { clearTimeout(timer); resolve(`ok (${image.width}x${image.height})`); };
-		image.onerror = () => { clearTimeout(timer); resolve('blockiert/fehlgeschlagen'); };
+		image.onerror = () => { clearTimeout(timer); resolve('blocked/failed'); };
 		image.src = url;
 	});
 
@@ -316,9 +325,9 @@
 	// WebView exposes the object even when geolocation is switched off for the view.
 	const errorNames = ['', 'PERMISSION_DENIED', 'POSITION_UNAVAILABLE', 'TIMEOUT'];
 	const probeGeolocation = () => new Promise((resolve) => {
-		if (!navigator.geolocation) return resolve('navigator.geolocation fehlt');
+		if (!navigator.geolocation) return resolve('navigator.geolocation missing');
 
-		const timer = setTimeout(() => resolve('keine Antwort nach 20 s (Callback kam nie)'), 20000);
+		const timer = setTimeout(() => resolve('no answer after 20 s (callback never fired)'), 20000);
 		navigator.geolocation.getCurrentPosition(
 			(position) => {
 				clearTimeout(timer);
@@ -326,7 +335,7 @@
 			},
 			(error) => {
 				clearTimeout(timer);
-				resolve(`Fehler ${error.code} ${errorNames[error.code] || '?'}: ${error.message || '(ohne Meldung)'}`);
+				resolve(`error ${error.code} ${errorNames[error.code] || '?'}: ${error.message || '(no message)'}`);
 			},
 			{ enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
 		);
@@ -334,24 +343,24 @@
 
 	$('button-probe').addEventListener('click', async () => {
 		const output = $('probe-output');
-		output.textContent = 'Prüfe … (Standortabfrage kann 20 s dauern)';
+		output.textContent = t('panel.probing');
 
 		const info = await webviewApi.postMessage({ type: 'diagnostics' });
 		const lines = [
 			`Joplin: ${info.version} (${info.platform})`,
-			`joplin.geolocation: ${info.geolocationApi ? 'wahr' : 'falsch'}`,
-			`Kontrollprobe (frei erfundene API): ${info.controlProbe ? 'wahr -> beide Werte aussagelos' : 'falsch -> Test aussagekräftig'}`,
-			`navigator.geolocation vorhanden: ${!!navigator.geolocation}`,
-			`Standortabfrage: ${await probeGeolocation()}`,
+			`joplin.geolocation: ${info.geolocationApi ? 'true' : 'false'}`,
+			`control probe (invented API): ${info.controlProbe ? 'true -> both values meaningless' : 'false -> test is meaningful'}`,
+			`navigator.geolocation present: ${!!navigator.geolocation}`,
+			`location request: ${await probeGeolocation()}`,
 			`isSecureContext: ${window.isSecureContext}`,
-			`OSM-Kachel: ${await probeImage('https://tile.openstreetmap.org/0/0/0.png')}`,
+			`OSM tile: ${await probeImage('https://tile.openstreetmap.org/0/0/0.png')}`,
 		];
 
 		try {
 			const response = await fetch('https://nominatim.openstreetmap.org/status.php?format=json');
 			lines.push(`fetch (Nominatim): ${response.status}`);
 		} catch (error) {
-			lines.push(`fetch (Nominatim): blockiert (${error.message})`);
+			lines.push(`fetch (Nominatim): blocked (${error.message})`);
 		}
 
 		lines.push(`User-Agent: ${navigator.userAgent}`);

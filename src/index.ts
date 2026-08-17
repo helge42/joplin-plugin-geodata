@@ -7,6 +7,12 @@ import { formatDecimal, formatPairDms, geoUri, osmUrl } from './location/format'
 import { defaultTemplate, placeholders, renderTemplate, stripMarkdownLinks, usesPlaceholder } from './location/template';
 import { reverseGeocode } from './geocode';
 import { readNoteGeodata, readSelectedNoteGeodata, writeCoordinates } from './notes';
+import { createTranslate, Dictionary, dictionaryFor, englishDictionary, Translate } from './i18n';
+
+// The user's language is only known once onStart runs, so the module starts out English
+// and is switched over there. Everything user-facing goes through this function.
+let dictionary: Dictionary = englishDictionary();
+let t: Translate = createTranslate(dictionary);
 
 interface PanelState {
 	noteId: string;
@@ -38,12 +44,12 @@ const emptyState = (message = '', messageKind: PanelState['messageKind'] = ''): 
 
 const buildState = async (noteId: string, message = '', messageKind: PanelState['messageKind'] = ''): Promise<PanelState> => {
 	const note = noteId ? await readNoteGeodata(noteId) : await readSelectedNoteGeodata();
-	if (!note) return emptyState('Keine Notiz ausgewählt.', '');
+	if (!note) return emptyState(t('message.noNote'), '');
 
 	const empty = isEmpty(note.coordinates);
 	return {
 		noteId: note.id,
-		noteTitle: note.title || '(ohne Titel)',
+		noteTitle: note.title || t('panel.untitled'),
 		hasCoordinates: !empty,
 		latitude: empty ? '' : formatDecimal(note.coordinates.latitude),
 		longitude: empty ? '' : formatDecimal(note.coordinates.longitude),
@@ -62,11 +68,11 @@ const coordinatesFromFields = (message: { latitude: string; longitude: string; a
 	const longitude = Number(String(message.longitude ?? '').replace(',', '.').trim());
 	const rawAltitude = String(message.altitude ?? '').replace(',', '.').trim();
 
-	if (!isValidLatitude(latitude)) return { error: 'Breite muss eine Zahl zwischen -90 und 90 sein.', coordinates: null as Coordinates };
-	if (!isValidLongitude(longitude)) return { error: 'Länge muss eine Zahl zwischen -180 und 180 sein.', coordinates: null as Coordinates };
+	if (!isValidLatitude(latitude)) return { error: t('message.invalidLatitude'), coordinates: null as Coordinates };
+	if (!isValidLongitude(longitude)) return { error: t('message.invalidLongitude'), coordinates: null as Coordinates };
 
 	const altitude = rawAltitude === '' ? 0 : Number(rawAltitude);
-	if (!Number.isFinite(altitude)) return { error: 'Höhe muss eine Zahl sein.', coordinates: null as Coordinates };
+	if (!Number.isFinite(altitude)) return { error: t('message.invalidAltitude'), coordinates: null as Coordinates };
 
 	return { error: '', coordinates: { latitude, longitude, altitude } };
 };
@@ -124,7 +130,7 @@ const MAX_RESOURCE_BYTES = 20 * 1024 * 1024;
 
 const readResourceText = async (resourceId: string) => {
 	const info = await joplin.data.get(['resources', resourceId], { fields: ['id', 'title', 'size'] });
-	if (info && info.size > MAX_RESOURCE_BYTES) throw new Error(`Die Datei ist mit ${Math.round(info.size / 1024 / 1024)} MB zu groß.`);
+	if (info && info.size > MAX_RESOURCE_BYTES) throw new Error(t('message.resourceTooBig', { size: Math.round(info.size / 1024 / 1024) }));
 
 	const file = await joplin.data.get(['resources', resourceId, 'file']);
 	return decodeToText(file && file.body !== undefined ? file.body : file);
@@ -157,7 +163,7 @@ const insertLocationText = async (coordinates: Coordinates) => {
 	try {
 		await joplin.commands.execute('insertText', text);
 	} catch (error) {
-		throw new Error('Der Editor hat den Text nicht angenommen. Notiz zum Bearbeiten öffnen und erneut versuchen.');
+		throw new Error(t('message.editorRefused'));
 	}
 
 	return { text, richText };
@@ -171,9 +177,13 @@ const requireNote = async (noteId: string) => {
 
 joplin.plugins.register({
 	onStart: async function() {
+		const [locale] = await joplin.settings.globalValues(['locale']);
+		dictionary = dictionaryFor(locale);
+		t = createTranslate(dictionary);
+
 		await joplin.settings.registerSection('geodata', {
-			label: 'Geodaten',
-			description: 'Anzeige und Bearbeitung der Koordinaten einer Notiz.',
+			label: t('setting.section'),
+			description: t('setting.section.description'),
 		});
 
 		await joplin.settings.registerSettings({
@@ -182,16 +192,16 @@ joplin.plugins.register({
 				public: true,
 				type: SettingItemType.Bool,
 				value: true,
-				label: 'Karte im Panel anzeigen',
-				description: 'Die Karte lädt Kacheln von OpenStreetMap. Ohne Karte funktioniert das Panel unverändert, nur ohne Kartendarstellung.',
+				label: t('setting.showMap'),
+				description: t('setting.showMap.description'),
 			},
 			insertTemplate: {
 				section: 'geodata',
 				public: true,
 				type: SettingItemType.String,
 				value: defaultTemplate,
-				label: 'Vorlage für "Standort einfügen"',
-				description: `Platzhalter: ${Object.keys(placeholders).join(' ')} — {place} fragt OpenStreetMap und braucht Netz.`,
+				label: t('setting.insertTemplate'),
+				description: t('setting.insertTemplate.description', { placeholders: Object.keys(placeholders).join(' ') }),
 			},
 		});
 
@@ -205,20 +215,21 @@ joplin.plugins.register({
 		// The note viewer cannot read resources itself, so it asks us for the file content
 		// of an attached .gpx.
 		await joplin.contentScripts.onMessage('geodata.gpx', async (message: any) => {
-			if (!message || message.type !== 'gpxResource') return { ok: false, error: 'Unbekannte Anfrage.' };
+			if (message && message.type === 'strings') return { ok: true, strings: dictionary };
+			if (!message || message.type !== 'gpxResource') return { ok: false, error: t('message.unknownRequest') };
 
 			try {
 				const text = await readResourceText(message.id);
-				if (!text.trim()) return { ok: false, error: 'Die angehängte Datei ist leer.' };
+				if (!text.trim()) return { ok: false, error: t('message.resourceEmpty') };
 				return { ok: true, text };
 			} catch (error) {
 				console.error('Geodata: Ressource nicht lesbar:', error);
-				return { ok: false, error: `Angehängte Datei nicht lesbar: ${error.message || error}` };
+				return { ok: false, error: t('message.resourceUnreadable', { error: error.message || error }) };
 			}
 		});
 
 		const panel = await joplin.views.panels.create('geodata.panel');
-		await joplin.views.panels.setHtml(panel, panelHtml);
+		await joplin.views.panels.setHtml(panel, panelHtml(t, dictionary));
 		// Leaflet first: panel.js expects window.L to exist when it initialises the map.
 		await joplin.views.panels.addScript(panel, './panel/vendor/leaflet.css');
 		await joplin.views.panels.addScript(panel, './panel/vendor/leaflet.js');
@@ -246,17 +257,17 @@ joplin.plugins.register({
 
 				case 'save': {
 					const noteId = await requireNote(message.noteId);
-					if (!noteId) return emptyState('Keine Notiz ausgewählt.', 'error');
+					if (!noteId) return emptyState(t('message.noNote'), 'error');
 
 					const { error, coordinates } = coordinatesFromFields(message);
 					if (error) return await buildState(noteId, error, 'error');
 
 					await writeCoordinates(noteId, coordinates);
-					return await buildState(noteId, 'Gespeichert.', 'ok');
+					return await buildState(noteId, t('message.saved'), 'ok');
 				}
 
 				case 'preview': {
-					const result = parseLocation(message.text);
+					const result = parseLocation(message.text, t);
 					if (!result.coordinates) return { ok: false, hint: result.error };
 					return {
 						ok: true,
@@ -266,21 +277,21 @@ joplin.plugins.register({
 
 				case 'apply': {
 					const noteId = await requireNote(message.noteId);
-					if (!noteId) return emptyState('Keine Notiz ausgewählt.', 'error');
+					if (!noteId) return emptyState(t('message.noNote'), 'error');
 
-					const result = parseLocation(message.text);
+					const result = parseLocation(message.text, t);
 					if (!result.coordinates) return await buildState(noteId, result.error, 'error');
 
 					await writeCoordinates(noteId, result.coordinates);
-					return await buildState(noteId, `Übernommen (${result.source}).`, 'ok');
+					return await buildState(noteId, t('message.applied', { source: result.source }), 'ok');
 				}
 
 				case 'clear': {
 					const noteId = await requireNote(message.noteId);
-					if (!noteId) return emptyState('Keine Notiz ausgewählt.', 'error');
+					if (!noteId) return emptyState(t('message.noNote'), 'error');
 
 					await writeCoordinates(noteId, { latitude: 0, longitude: 0, altitude: 0 });
-					return await buildState(noteId, 'Geodaten gelöscht.', 'ok');
+					return await buildState(noteId, t('message.cleared'), 'ok');
 				}
 
 				case 'editorAvailable':
@@ -288,19 +299,19 @@ joplin.plugins.register({
 
 				case 'insertLocation': {
 					const noteId = await requireNote(message.noteId);
-					if (!noteId) return emptyState('Keine Notiz ausgewählt.', 'error');
+					if (!noteId) return emptyState(t('message.noNote'), 'error');
 
 					const { error, coordinates } = coordinatesFromFields(message);
 					if (error) return await buildState(noteId, error, 'error');
 
 					if (!await editorAvailable()) {
-						return await buildState(noteId, 'Der Editor ist nicht geöffnet. Notiz zum Bearbeiten öffnen, dann einfügen.', 'error');
+						return await buildState(noteId, t('message.editorClosed'), 'error');
 					}
 
 					// Inserting text must not touch the note's own coordinates.
 					const { text, richText } = await insertLocationText(coordinates);
-					const note = richText ? ' (Rich-Text-Editor: als Text ohne Link)' : '';
-					return await buildState(noteId, `Eingefügt: ${text}${note}`, 'ok');
+					const note = richText ? t('message.insertedRichText') : '';
+					return await buildState(noteId, `${t('message.inserted', { text })}${note}`, 'ok');
 				}
 
 				case 'getSettings':
@@ -329,17 +340,17 @@ joplin.plugins.register({
 				}
 
 				default:
-					return { error: `Unbekannte Nachricht: ${message.type}` };
+					return { error: t('message.unknownMessage', { type: message.type }) };
 				}
 			} catch (error) {
 				console.error('Geodata plugin:', error);
-				return emptyState(`Fehler: ${error.message || error}`, 'error');
+				return emptyState(t('message.error', { error: error.message || error }), 'error');
 			}
 		});
 
 		await joplin.commands.register({
 			name: 'geodata.togglePanel',
-			label: 'Geodaten anzeigen',
+			label: t('command.togglePanel'),
 			execute: async () => {
 				const visible = await joplin.views.panels.visible(panel);
 				await joplin.views.panels.show(panel, !visible);
@@ -348,24 +359,24 @@ joplin.plugins.register({
 
 		await joplin.commands.register({
 			name: 'geodata.insertLocation',
-			label: 'Standort in Notiz einfügen',
+			label: t('command.insertLocation'),
 			execute: async () => {
 				// Prefer a fresh fix; fall back to what the note already carries, so the
 				// command stays useful indoors and when writing up a trip afterwards.
 				let coordinates = await pluginProcessPosition();
-				let source = 'aktueller Standort';
+				let source = t('message.sourceCurrent');
 
 				if (!coordinates) {
 					const note = await readSelectedNoteGeodata();
 					if (note && !isEmpty(note.coordinates)) {
 						coordinates = note.coordinates;
-						source = 'Geodaten der Notiz';
+						source = t('message.sourceNote');
 					}
 				}
 
 				if (!coordinates) {
 					await joplin.views.dialogs.showToast({
-						message: 'Kein Standort verfügbar. Im Geodaten-Panel den Standort holen und dort einfügen.',
+						message: t('message.noLocation'),
 						type: ToastType.Error,
 					});
 					return;
@@ -373,7 +384,7 @@ joplin.plugins.register({
 
 				if (!await editorAvailable()) {
 					await joplin.views.dialogs.showToast({
-						message: 'Der Editor ist nicht geöffnet. Notiz zum Bearbeiten öffnen, dann einfügen.',
+						message: t('message.editorClosed'),
 						type: ToastType.Error,
 					});
 					return;
@@ -381,7 +392,7 @@ joplin.plugins.register({
 
 				await insertLocationText(coordinates);
 				await joplin.views.dialogs.showToast({
-					message: `Standort eingefügt (${source}).`,
+					message: t('message.insertedFrom', { source }),
 					type: ToastType.Success,
 				});
 			},
