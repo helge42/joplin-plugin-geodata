@@ -46,13 +46,24 @@ export const openResourceLink = (ruleOptions: any, resourceId: string, escapeHtm
 	if (!resourceId) return '';
 
 	const post = (ruleOptions && ruleOptions.postMessageSyntax) || 'postMessage';
-	const href = `joplin://${resourceId}`;
-	const js = `${post}(${JSON.stringify(href)}, { resourceId: ${JSON.stringify(resourceId)} }); return false;`;
+
+	// On mobile the same message a long press sends opens Joplin's own attachment menu,
+	// which offers "Share" - and that route copies the file to the cache under its original
+	// name first (ShareUtils.copyToCache -> Resource.friendlySafeFilename). Opening the
+	// resource directly would hand over <id>.gpx instead, because showResource passes the
+	// stored path straight to FileViewer.
+	//
+	// enableLongPress is Joplin's own signal for "this is the mobile renderer"; on the
+	// desktop the menu does not exist, so there we open the resource directly.
+	const useMenu = !!(ruleOptions && ruleOptions.enableLongPress);
+	const js = useMenu
+		? `${post}(${JSON.stringify(`longclick:${resourceId}`)}); return false;`
+		: `${post}(${JSON.stringify(`joplin://${resourceId}`)}, { resourceId: ${JSON.stringify(resourceId)} }); return false;`;
 
 	// The label is left empty on purpose: the content script runs in the renderer and has no
 	// access to the settings, so it cannot know the user's language. gpxViewer.js fills it in
 	// once it has fetched the strings from the plugin process.
-	return `<a class="geodata-gpx-open" data-from-md data-resource-id="${escapeHtml(resourceId)}" href="#" onclick="${escapeHtml(js)}"></a>`;
+	return `<a class="geodata-gpx-open" data-menu="${useMenu ? '1' : '0'}" data-from-md data-resource-id="${escapeHtml(resourceId)}" href="#" onclick="${escapeHtml(js)}"></a>`;
 };
 
 export default function(context: { contentScriptId: string }) {

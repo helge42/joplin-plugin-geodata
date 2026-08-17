@@ -351,7 +351,9 @@
 
 		for (const block of blocks) {
 			const openLink = block.querySelector('.geodata-gpx-open');
-			if (openLink && !openLink.textContent) openLink.textContent = t('gpx.openInApp');
+			if (openLink && !openLink.textContent) {
+				openLink.textContent = openLink.dataset.menu === '1' ? t('gpx.openOrShare') : t('gpx.openInApp');
+			}
 
 			try {
 				renderBlock(block);

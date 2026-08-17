@@ -71,6 +71,13 @@ check('ohne bekannte Ressource keine URL', resourceUrlFrom({ resources: {} }, id
 const escapeHtml = (value) => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const openLink = openResourceLink({ postMessageSyntax: 'window.postJoplin' }, id, escapeHtml);
 check('Öffnen-Link nutzt postMessageSyntax', openLink.includes('window.postJoplin('), openLink);
+
+// Auf Mobile geht der Link über Joplins Anhang-Menü, weil dessen Teilen-Eintrag die Datei
+// unter ihrem Originalnamen weiterreicht.
+const menuLink = openResourceLink({ postMessageSyntax: 'window.postJoplin', enableLongPress: true }, id, escapeHtml);
+check('Mobile-Link öffnet das Anhang-Menü', menuLink.includes(`longclick:${id}`), menuLink);
+check('Mobile-Link ist als Menü markiert', menuLink.includes('data-menu="1"'));
+check('Desktop-Link bleibt direkt', openLink.includes('data-menu="0"') && !openLink.includes('longclick'));
 check('Öffnen-Link zeigt auf joplin://', openLink.includes(`joplin://${id}`), openLink);
 check('Öffnen-Link unterdrückt die Navigation', openLink.includes('return false'), openLink);
 check('ohne Ressource kein Öffnen-Link', openResourceLink({}, '', escapeHtml) === '');
@@ -82,6 +89,6 @@ check('ohne Label kein Name', resourceNameFrom(`:/${id}`) === '');
 check('Pfade werden verworfen', resourceNameFrom(`[../etc/passwd](:/${id})`) === '');
 check('Name landet im Markup', markdownIt.render('```gpx\n[tour.gpx](:/' + id + ')\n```').includes('data-gpx-name="tour.gpx"'));
 
-const total = 33;
+const total = 36;
 console.log(`\n${total - bad}/${total} bestanden`);
 process.exit(bad ? 1 : 0);
