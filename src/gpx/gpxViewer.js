@@ -240,6 +240,20 @@
 
 		map.fitBounds(window.L.featureGroup(lines).getBounds(), { padding: [12, 12] });
 		renderStats(container.querySelector('.geodata-gpx-stats'), trackStats(segments));
+		addStartPointLink(container, first);
+	};
+
+	// The start of the track as a geo: link - the only thing that can be handed to a maps
+	// app when the GPX sits inline in the note and there is no file to pass on.
+	const addStartPointLink = (container, start) => {
+		const actions = container.querySelector('.geodata-gpx-actions');
+		if (!actions || actions.querySelector('.geodata-gpx-start')) return;
+
+		const link = document.createElement('a');
+		link.className = 'geodata-gpx-start';
+		link.href = `geo:${start.lat.toFixed(6)},${start.lon.toFixed(6)}`;
+		link.textContent = 'Startpunkt in Karten-App';
+		actions.appendChild(link);
 	};
 
 	const renderBlock = (container) => {

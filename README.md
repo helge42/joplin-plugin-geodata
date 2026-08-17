@@ -81,6 +81,10 @@ dauerhaft ohne Ort.
   erkennt nur so, dass die Datei zu dieser Notiz gehört. Ohne Link gilt sie als verwaist
   und kann beim Aufräumen verlorengehen.
 
+  Unter der Karte steht **„Startpunkt in Karten-App"**, und bei einer angehängten Datei
+  zusätzlich **„Track in anderer App öffnen"** — damit landet die `.gpx` über Joplins
+  Anhang-Mechanismus in der App-Auswahl des Systems, also etwa in OsmAnd.
+
   Aufnahmepausen werden nicht als Luftlinie durchgezogen, sehr lange Tracks zum Zeichnen
   ausgedünnt (die Statistik rechnet mit allen Punkten). Ohne Netz bleibt die Kartenfläche
   leer, die Zahlen stehen trotzdem da.

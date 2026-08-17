@@ -1,5 +1,5 @@
 const MarkdownIt = require('markdown-it');
-const { default: contentScript, resourceIdFrom, resourceUrlFrom } = require('../.test-build/gpx/contentScript');
+const { default: contentScript, resourceIdFrom, resourceUrlFrom, openResourceLink } = require('../.test-build/gpx/contentScript');
 
 const context = { contentScriptId: 'geodata.gpx' };
 const markdownIt = new MarkdownIt();
@@ -67,6 +67,16 @@ check('baut die Ressourcen-URL', resourceUrlFrom(ruleOptions, id) === `file:///d
 check('bevorzugt itemIdToUrl', resourceUrlFrom({ ...ruleOptions, itemIdToUrl: () => 'joplin-content://x.gpx' }, id) === 'joplin-content://x.gpx');
 check('ohne bekannte Ressource keine URL', resourceUrlFrom({ resources: {} }, id) === '');
 
-const total = 23;
+// Öffnen-Link: gleiche Mechanik wie Joplins eigene Ressourcen-Links.
+const escapeHtml = (value) => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+const openLink = openResourceLink({ postMessageSyntax: 'window.postJoplin' }, id, escapeHtml);
+check('Öffnen-Link nutzt postMessageSyntax', openLink.includes('window.postJoplin('), openLink);
+check('Öffnen-Link zeigt auf joplin://', openLink.includes(`joplin://${id}`), openLink);
+check('Öffnen-Link unterdrückt die Navigation', openLink.includes('return false'), openLink);
+check('ohne Ressource kein Öffnen-Link', openResourceLink({}, '', escapeHtml) === '');
+check('Block mit Datei bekommt den Öffnen-Link', markdownIt.render('```gpx\n[t.gpx](:/' + id + ')\n```').includes('geodata-gpx-open'));
+check('Inline-Block bekommt keinen Öffnen-Link', !rendered.includes('geodata-gpx-open'));
+
+const total = 29;
 console.log(`\n${total - bad}/${total} bestanden`);
 process.exit(bad ? 1 : 0);

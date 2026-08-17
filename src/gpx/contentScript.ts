@@ -28,6 +28,19 @@ export const resourceUrlFrom = (ruleOptions: any, resourceId: string) => {
 	return `${ruleOptions.resourceBaseUrl || './'}${ruleOptions.ResourceModel.filename(resource)}${timestamp}`;
 };
 
+// Builds the same anchor Joplin's own link rule produces for an attached file, so tapping
+// it goes through Joplin's resource handling and ends up in the system's app chooser -
+// which is how a track gets into OsmAnd and friends. See linkReplacement.ts.
+export const openResourceLink = (ruleOptions: any, resourceId: string, escapeHtml: (value: string) => string) => {
+	if (!resourceId) return '';
+
+	const post = (ruleOptions && ruleOptions.postMessageSyntax) || 'postMessage';
+	const href = `joplin://${resourceId}`;
+	const js = `${post}(${JSON.stringify(href)}, { resourceId: ${JSON.stringify(resourceId)} }); return false;`;
+
+	return `<a class="geodata-gpx-open" data-from-md data-resource-id="${escapeHtml(resourceId)}" href="#" onclick="${escapeHtml(js)}">Track in anderer App öffnen</a>`;
+};
+
 export default function(context: { contentScriptId: string }) {
 	return {
 		plugin: function(markdownIt: any, ruleOptions: any) {
@@ -63,6 +76,7 @@ export default function(context: { contentScriptId: string }) {
 							data-content-script-id="${escapeAttribute(context.contentScriptId)}"
 						></div>
 						<div class="geodata-gpx-stats"></div>
+						<div class="geodata-gpx-actions">${openResourceLink(ruleOptions, resourceId, escapeAttribute)}</div>
 					</div>
 				`;
 			};

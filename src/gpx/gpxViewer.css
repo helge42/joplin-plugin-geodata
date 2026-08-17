@@ -30,6 +30,20 @@
 	opacity: 0.8;
 }
 
+.geodata-gpx-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 16px;
+	margin-top: 6px;
+	font-size: 0.9em;
+}
+
+/* Touch targets rather than text-sized links. */
+.geodata-gpx-actions a {
+	padding: 6px 0;
+	text-decoration: none;
+}
+
 /* Leaflet sets its own font size; without this the attribution is oversized in the note. */
 .geodata-gpx .leaflet-container {
 	font-family: inherit;
