@@ -260,6 +260,46 @@
 		map.fitBounds(window.L.featureGroup(lines).getBounds(), { padding: [12, 12] });
 		renderStats(container.querySelector('.geodata-gpx-stats'), trackStats(segments));
 		addStartPointLink(container, first);
+		addShareLink(container, mapElement, text);
+	};
+
+	// Joplin hands attachments to other apps under their internal name (showResource opens
+	// <resourceDir>/<id>.gpx directly), so the receiving app shows that instead of
+	// "tour.gpx". We already hold the file contents, so where the Web Share API is
+	// available we can pass it on with its proper name. Feature-detected, because plain
+	// Android WebViews do not have it - the link only appears where it actually works.
+	const addShareLink = (container, mapElement, text) => {
+		const actions = container.querySelector('.geodata-gpx-actions');
+		if (!actions || actions.querySelector('.geodata-gpx-share')) return;
+		if (typeof File === 'undefined' || !navigator.canShare) return;
+
+		const name = fileNameFor(mapElement, text);
+		const file = new File([text], name, { type: 'application/gpx+xml' });
+		if (!navigator.canShare({ files: [file] })) return;
+
+		const link = document.createElement('a');
+		link.className = 'geodata-gpx-share';
+		link.href = '#';
+		link.textContent = t('gpx.share', { name });
+		link.onclick = (event) => {
+			event.preventDefault();
+			navigator.share({ files: [file], title: name }).catch((error) => {
+				// A cancelled share dialog rejects too, which is not worth reporting.
+				console.info('Geodata GPX: sharing cancelled or failed', error);
+			});
+			return false;
+		};
+		actions.appendChild(link);
+	};
+
+	const fileNameFor = (mapElement, text) => {
+		const attached = (mapElement.dataset.gpxName || '').trim();
+		if (attached) return /\.gpx$/i.test(attached) ? attached : `${attached}.gpx`;
+
+		// Inline tracks have no file name, so fall back to the <name> inside the GPX.
+		const named = /<name>([^<]{1,60})<\/name>/i.exec(text);
+		const safe = named ? named[1].replace(/[^\w\s.-]/g, '').trim() : '';
+		return safe ? `${safe}.gpx` : 'track.gpx';
 	};
 
 	// The start of the track as a geo: link - the only thing that can be handed to a maps
