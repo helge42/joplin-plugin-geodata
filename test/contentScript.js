@@ -1,5 +1,5 @@
 const MarkdownIt = require('markdown-it');
-const { default: contentScript, resourceIdFrom, resourceUrlFrom, openResourceLink, resourceNameFrom } = require('../.test-build/gpx/contentScript');
+const { default: contentScript, resourceIdFrom, resourceUrlFrom, openResourceLink } = require('../.test-build/gpx/contentScript');
 
 const context = { contentScriptId: 'geodata.gpx' };
 const markdownIt = new MarkdownIt();
@@ -84,11 +84,7 @@ check('ohne Ressource kein Öffnen-Link', openResourceLink({}, '', escapeHtml) =
 check('Block mit Datei bekommt den Öffnen-Link', markdownIt.render('```gpx\n[t.gpx](:/' + id + ')\n```').includes('geodata-gpx-open'));
 check('Inline-Block bekommt keinen Öffnen-Link', !rendered.includes('geodata-gpx-open'));
 
-check('liest den Dateinamen aus dem Link', resourceNameFrom(`[tour.gpx](:/${id})`) === 'tour.gpx');
-check('ohne Label kein Name', resourceNameFrom(`:/${id}`) === '');
-check('Pfade werden verworfen', resourceNameFrom(`[../etc/passwd](:/${id})`) === '');
-check('Name landet im Markup', markdownIt.render('```gpx\n[tour.gpx](:/' + id + ')\n```').includes('data-gpx-name="tour.gpx"'));
 
-const total = 36;
+const total = 32;
 console.log(`\n${total - bad}/${total} bestanden`);
 process.exit(bad ? 1 : 0);

@@ -13,15 +13,6 @@ export const resourceIdFrom = (content: string) => {
 	return match ? match[2].toLowerCase() : '';
 };
 
-// The label of the Markdown link is the original file name - Joplin puts it there when the
-// file is attached. Worth keeping: the file on disk is called <id>.gpx, and that is the
-// name any other app would otherwise show.
-export const resourceNameFrom = (content: string) => {
-	const match = RESOURCE_PATTERN.exec(content || '');
-	const label = match && match[1] ? match[1].trim() : '';
-	return /[\\/]/.test(label) ? '' : label;
-};
-
 // Builds the same URL Joplin's own image rule uses for a resource, so the note viewer can
 // load the file directly. That is the only way that works on Android, where the data API
 // refuses the resource body with "Unsupported encoding: buffer".
@@ -81,7 +72,6 @@ export default function(context: { contentScriptId: string }) {
 
 				const source = markdownIt.utils.escapeHtml(token.content);
 				const resourceId = resourceIdFrom(token.content);
-				const resourceName = resourceNameFrom(token.content);
 				const escapeAttribute = markdownIt.utils.escapeHtml;
 
 				// The joplin-editable/joplin-source pair lets the rich text editor turn the
@@ -99,7 +89,6 @@ export default function(context: { contentScriptId: string }) {
 							class="geodata-gpx-map"
 							data-gpx-resource="${escapeAttribute(resourceId)}"
 							data-gpx-url="${escapeAttribute(resourceId ? resourceUrlFrom(ruleOptions, resourceId) : '')}"
-							data-gpx-name="${escapeAttribute(resourceName)}"
 							data-content-script-id="${escapeAttribute(context.contentScriptId)}"
 						></div>
 						<div class="geodata-gpx-stats"></div>
