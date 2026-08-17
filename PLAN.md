@@ -1,343 +1,316 @@
-# Joplin-Plugin "Reisetagebuch / Geodaten" — Plan
+# Joplin plugin "Travel journal / Geodata" — plan
 
-Stand: 2026-08-15
+Started: 2026-08-15
 
-## 1. Ziel
+## 1. Goal
 
-Joplin (Schwerpunkt **Android/Mobile**) so erweitern, dass Notizen als Reisetagebuch mit
-Geobezug nutzbar sind:
+Extend Joplin (focus on **Android/mobile**) so that notes work as a travel journal with a
+sense of place:
 
-1. **MVP:** Geodaten einer Notiz ansehen und bearbeiten (manuell + "aktueller Standort")
-2. Aktuellen Standort als Text in die Notiz einfügen
-3. GPX-Tracks in der Notiz darstellen (OSM-Karte), optional als Bild sichern
+1. **MVP:** view and edit a note's geodata (by hand and from the current location)
+2. Insert the current location into the note as text
+3. Show GPX tracks in the note (OSM map), optionally saved as an image
 
 ---
 
-## 2. Rechercheergebnisse (harte Fakten, verifiziert)
+## 2. Research results (verified facts)
 
-| Frage | Antwort | Quelle |
+| Question | Answer | Source |
 |---|---|---|
-| Sind `latitude`/`longitude`/`altitude` per Plugin-API schreibbar? | **Ja**, normale Note-Felder, `PUT /notes/:id` bzw. `joplin.data.put` | [Data API](https://joplinapp.org/help/api/references/rest_api/) |
-| Laufen Plugins auf Mobile? | Ja, seit Joplin 3.x. Jedes Plugin läuft in einem `iframe` in einer `WebView`. Manifest braucht `"platforms": ["desktop","mobile"]` | [Mobile Plugin Debugging](https://joplinapp.org/help/api/references/mobile_plugin_debugging/), [Manifest](https://joplinapp.org/help/api/references/plugin_manifest/) |
-| Wie sieht man ein Panel auf Mobile? | Panels erscheinen in einem **Tab-Dialog**, der über einen Toolbar-Button im Notiz-Editor geöffnet wird. `panels.show()`/`.visible` verhalten sich anders als auf Desktop | [joplin.views.panels](https://joplinapp.org/api/references/plugin_api/classes/joplinviewspanels.html), [Forum](https://discourse.joplinapp.org/t/plugin-api-what-should-panels-show-and-panels-visible-do-on-mobile/37507) |
-| Gibt es eine Geolocation-API für Plugins? | **Nein.** Laurent (Maintainer) im Forum: *"We don't currently expose this API but a PR would be accepted if you're interested in implementing it."* | [Forum: Geolocation API](https://discourse.joplinapp.org/t/geolocation-api/47854) |
-| Geht `navigator.geolocation` im Plugin-WebView? | **Ja, auf Android bestätigt.** Getestet auf Joplin-Android 3.6.21 (Xperia 5 III, Android 16, WebView Chrome 149): `getCurrentPosition` liefert einen echten Fix. — *Korrektur:* aus `ExtendedWebView/index.tsx` (keine Prop `geolocationEnabled`) hatte ich das Gegenteil geschlossen; das Gerät sagt etwas anderes. iOS ist ungetestet und bleibt fraglich. | Messung am Gerät, 2026-08-15 |
-| Setzt Joplin Geodaten beim Anlegen einer Notiz über die API? | **Nein.** `Note.updateGeolocation()` wird ausschließlich beim ersten Speichern einer *provisorischen* Notiz aus dem Editor-UI aufgerufen (`packages/lib/components/shared/note-screen-shared.ts`), gated durch Setting `trackLocation`. Zusätzlich: 10-Minuten-Cache der letzten Position. | Joplin-Quellcode `dev` |
-| Überschreibt der offene Editor meine per Plugin geschriebenen Koordinaten? | **Nein.** Der Editor speichert nur geänderte Felder (`fields: BaseModel.diffObjectsFields(lastSavedNote, note)`). Lat/Lon sind nicht im Diff. (UI zeigt aber ggf. bis zum Neuladen alte Werte.) | Joplin-Quellcode `dev` |
-| Plugin per Datei auf dem Handy installierbar? | Ja, `PluginUploadButton` im Mobile-Config-Screen → `.jpl` direkt installierbar | Joplin-Quellcode `dev` |
+| Are `latitude`/`longitude`/`altitude` writable through the plugin API? | **Yes**, they are ordinary note fields, `PUT /notes/:id` or `joplin.data.put` | [Data API](https://joplinapp.org/help/api/references/rest_api/) |
+| Do plugins run on mobile? | Yes, since Joplin 3.x. Every plugin runs in an `iframe` inside a `WebView`. The manifest needs `"platforms": ["desktop","mobile"]` | [Mobile plugin debugging](https://joplinapp.org/help/api/references/mobile_plugin_debugging/), [Manifest](https://joplinapp.org/help/api/references/plugin_manifest/) |
+| How does a panel appear on mobile? | Panels show up in a **tabbed dialog** opened from a toolbar button in the note editor. `panels.show()`/`.visible` behave differently than on desktop | [joplin.views.panels](https://joplinapp.org/api/references/plugin_api/classes/joplinviewspanels.html), [Forum](https://discourse.joplinapp.org/t/plugin-api-what-should-panels-show-and-panels-visible-do-on-mobile/37507) |
+| Is there a geolocation API for plugins? | **No.** Laurent (maintainer) in the forum: *"We don't currently expose this API but a PR would be accepted if you're interested in implementing it."* | [Forum: Geolocation API](https://discourse.joplinapp.org/t/geolocation-api/47854) |
+| Does `navigator.geolocation` work in the plugin webview? | **Yes, confirmed on Android.** Tested on Joplin for Android 3.6.21 (Xperia 5 III, Android 16, WebView Chrome 149): `getCurrentPosition` returns a real fix. — *Correction:* from `ExtendedWebView/index.tsx` (no `geolocationEnabled` prop) I had concluded the opposite; the device says otherwise. iOS is untested and remains doubtful. | Measured on the device, 2026-08-15 |
+| Does Joplin set geodata when a note is created through the API? | **No.** `Note.updateGeolocation()` is called only when a *provisional* note is first saved from the editor UI (`packages/lib/components/shared/note-screen-shared.ts`), gated by the `trackLocation` setting. On top of that, the last position is cached for 10 minutes. | Joplin source, `dev` |
+| Does an open editor overwrite coordinates written by the plugin? | **No.** The editor saves only changed fields (`fields: BaseModel.diffObjectsFields(lastSavedNote, note)`), and lat/lon are not in that diff. (The UI may show stale values until it reloads.) | Joplin source, `dev` |
+| Can a plugin be installed from a file on the phone? | Yes, `PluginUploadButton` on the mobile config screen installs a `.jpl` directly. Not on iOS — see below. | Joplin source, `dev` |
+| Can plugins be installed on iOS? | **Only recommended ones.** *"To adhere to AppStore guidelines, the iOS app only allows installing recommended plugins."* The web app at [app.joplincloud.com](https://app.joplincloud.com) does accept `.jpl` files, which makes it the practical route for iPhone users. | [Plugins](https://joplinapp.org/help/apps/plugins/), [Web app](https://joplinapp.org/help/apps/web/) |
 
-### Konsequenz für Feature "aktuellen Standort eintragen"
+### Consequence for "record the current location"
 
-**Gelöst — `navigator.geolocation` funktioniert im Plugin-Panel auf Android** (am Gerät
-bestätigt, s. o.). Ein Tap auf „Aktuellen Standort übernehmen“ holt einen echten Fix samt
-Genauigkeit und schreibt ihn in die Notiz. Das ist der Hauptweg.
+**Solved — `navigator.geolocation` works in the plugin panel on Android** (confirmed on the
+device, see above). One tap fetches a real fix including accuracy. This is the main route.
 
-Historie der erwogenen Wege, damit die Entscheidung nachvollziehbar bleibt:
+The alternatives considered, kept so the decision stays traceable:
 
-| Weg | Status |
+| Route | Status |
 |---|---|
-| **A — Upstream-PR** an Joplin (`joplin.geolocation` in der Plugin-API) | **nicht mehr nötig.** Wäre nur der saubere Weg gewesen, wenn der WebView den Zugriff blockte — tut er nicht. |
-| **B — Einfügen/Parsen** aus anderer App (`geo:`-URI, Maps-/OSM-Links, DMS, Dezimalgrad) | **bleibt als Fallback**, und zwar ein nützlicher: wenn kein Fix zu bekommen ist (drinnen, Tunnel) oder wenn die Koordinate zu einem Ort gehört, an dem man gerade nicht steht — beim Reisetagebuch der Normalfall beim Nachpflegen. |
-| ~~**C — Umweg über neue Notiz**~~ | **verworfen.** Praxiserfahrung: in geteilten Notizbüchern trägt Joplin so gut wie nie eine Location ein (vermutlich Timing zwischen Notiz-Anlage und GPS-Fix). Als Fundament unbrauchbar — und genau der Grund für dieses Plugin. |
-| **D — Web-Version** von Joplin im Browser | nur für Entwicklung/Test relevant |
+| **A — upstream PR** to Joplin (`joplin.geolocation` in the plugin API) | **no longer needed.** It would only have been the clean way if the webview blocked access, which it does not. |
+| **B — paste and parse** from another app (`geo:` URI, Maps/OSM links, DMS, decimal degrees) | **kept as a fallback**, and a useful one: when no fix is available (indoors, in a tunnel) or when the coordinate belongs to a place you are not standing at — the normal case when writing up a trip afterwards. |
+| ~~**C — detour via a new note**~~ | **rejected.** From practice: in shared notebooks Joplin almost never records a location (probably a timing problem between creating the note and getting a fix). Useless as a foundation — and precisely the reason this plugin exists. |
+| **D — web version** of Joplin in the browser | relevant for development and for iPhone users |
 
-Offen bleibt iOS: dort ist der Zugriff ungetestet und laut WKWebView-Verhalten fraglich.
-Falls das je relevant wird, ist B die Rückfallebene, die dann trägt.
+iOS remains open: access there is untested and doubtful given WKWebView's behaviour. If it
+ever matters, B is the fallback that will carry it.
 
 ---
 
-## 3. Architektur
+## 3. Architecture
 
 ```
-joplin-plugin-geo/
-├─ manifest.json          platforms: ["desktop","mobile"]
+joplin-plugin-geodata/
 ├─ src/
-│  ├─ index.ts            Plugin-Main: Panel, Commands, Settings, Message-Router
+│  ├─ manifest.json       platforms: ["desktop","mobile"]
+│  ├─ index.ts            plugin main: panel, commands, settings, message router
 │  ├─ location/
-│  │   ├─ provider.ts     getCurrentPosition(): joplin.geolocation → navigator → null
-│  │   ├─ parse.ts        Text → {lat,lon,alt}  (geo:, DD, DMS, Maps-/OSM-URLs)
-│  │   └─ format.ts       {lat,lon} → DD / DMS / geo: / Links
-│  ├─ notes.ts            read/write der Note-Felder via joplin.data
+│  │   ├─ parse.ts        text → {lat,lon,alt}  (geo:, DD, DMS, Maps/OSM URLs)
+│  │   ├─ format.ts       {lat,lon} → DD / DMS / geo: / links
+│  │   └─ template.ts     insert template and its placeholders
+│  ├─ geocode.ts          reverse geocoding via Nominatim, cached
+│  ├─ notes.ts            reads/writes the note fields through joplin.data
 │  ├─ panel/
-│  │   ├─ panel.html/.css/.js   UI im WebView (Werte, Formular, Karte)
-│  │   └─ vendor/leaflet.*      lokal gebündelt (kein CDN, offline-tauglich)
-│  └─ gpx/                (Phase 4)
-│      ├─ contentScript.ts      markdown-it-Plugin für ```gpx-Blöcke
-│      └─ viewer.js             Leaflet-Rendering im Notiz-Viewer
+│  │   ├─ markup.ts, panel.css, panel.js   UI in the webview
+│  │   └─ vendor/leaflet.*                 bundled locally, no CDN
+│  └─ gpx/
+│      ├─ contentScript.ts   markdown-it rule for ```gpx blocks
+│      ├─ gpxViewer.js/.css  Leaflet rendering inside the note viewer
+│      └─ leaflet.*          second copy, see phase 4
 ```
 
-**Datenfluss Panel ↔ Plugin:** `webviewApi.postMessage()` im Panel →
-`panel.onMessage()` im Plugin → `joplin.data.get/put(['notes', id], …)`.
-Aktualisierung bei `workspace.onNoteSelectionChange` und `workspace.onNoteChange`.
+**Data flow panel ↔ plugin:** `webviewApi.postMessage()` in the panel →
+`panel.onMessage()` in the plugin → `joplin.data.get/put(['notes', id], …)`.
+Refreshed on `workspace.onNoteSelectionChange` and `workspace.onNoteChange`.
 
-**Grundsatz Offline-First:** Die Reise findet ohne Netz statt. Zahlen-Eingabe, Parser,
-Formatierung, GPX-Parsing müssen komplett offline funktionieren; Kartenkacheln und
-Reverse-Geocoding (Nominatim) sind optionale, abschaltbare Extras.
+**Offline first:** the journey happens without a network. Entering numbers, parsing,
+formatting and GPX parsing must all work offline; map tiles and reverse geocoding
+(Nominatim) are optional extras that can be switched off.
 
 ---
 
-## 4. Phasen
+## 4. Phases
 
-### Phase 0 — Setup & Spike (halber Tag)
+### Phase 0 — setup and spike ✅
 
-Ziel: Werkzeugkette steht und die unsicheren API-Fragen sind am echten Gerät beantwortet.
+Goal: the toolchain stands and the uncertain API questions are answered on a real device.
 
-- [ ] Node.js installieren — **Entscheidung: per apt** (`sudo apt install nodejs npm`, Debian 13
-      liefert Node 20; muss von dir mit sudo ausgeführt werden)
-- [ ] `git init` im Projektverzeichnis (aktuell kein Repo)
-- [ ] `npx yo joplin` → Gerüst, `platforms: ["desktop","mobile"]`
-- [ ] Build `npm run dist` → `.jpl` → auf Handy per Einstellungen → Plugins → Datei installieren
-- [x] Gerüst aus den Generator-Templates (`generator-joplin`), Platzhalter gefüllt,
-      `npm install`, `npm run dist` → `.jpl` baut
-- [x] Parser-Tests: `npm test` (26 Fälle, dependency-frei)
+- [x] Node.js installed via apt (Debian 13 ships Node 20)
+- [x] Scaffolding from the `generator-joplin` templates, placeholders filled in,
+      `npm install`, `npm run dist` produces a `.jpl`
+- [x] Tests: `npm test`, dependency-free
 
-**Bereits ohne Gerät beantwortet:** Die mitgelieferten API-Typen in `api/*.d.ts` markieren
-desktop-only Member mit `<span class="platform-desktop">`. Daraus ergibt sich verbindlich:
+**Answered without a device:** the bundled API types in `api/*.d.ts` mark desktop-only
+members with `<span class="platform-desktop">`, which settles the question:
 
 | API | Mobile |
 |---|---|
-| `views.panels` (inkl. `postMessage`/`onMessage`), `views.toolbarButtons`, `contentScripts`, `data`, `settings`, `commands`, `views.editors` | **verfügbar** |
-| `workspace` | verfügbar, außer `filterEditorContextMenu` |
-| `views.dialogs` | verfügbar, außer `showOpenDialog` |
-| `ToolbarButtonLocation.EditorToolbar` | verfügbar — `NoteToolbar` ist desktop-only |
+| `views.panels` (incl. `postMessage`/`onMessage`), `views.toolbarButtons`, `contentScripts`, `data`, `settings`, `commands`, `views.editors` | **available** |
+| `workspace` | available, except `filterEditorContextMenu` |
+| `views.dialogs` | available, except `showOpenDialog` |
+| `ToolbarButtonLocation.EditorToolbar` | available — `NoteToolbar` is desktop-only |
 | `views.menuItems`, `clipboard`, `imaging`, `fs`, `interop`, `window`, `ai`, `joplin.require` | **desktop-only** |
 
-Folgen: Einstiegspunkt ist Panel + `EditorToolbar` (keine Menüpunkte auf Mobile);
-kein Clipboard-Zugriff → das Einfügefeld ist ohnehin der richtige Weg;
-`imaging`/`fs` desktop-only → Bild-Export in Phase 4 ist auf Mobile nur über den
-`data:`-URL-Umweg denkbar.
+Consequences: the entry point is the panel plus `EditorToolbar` (no menu items on mobile);
+no clipboard access, so a paste field is the right approach anyway; `imaging`/`fs` being
+desktop-only means the image export in phase 4 is only conceivable through a `data:` URL
+on mobile.
 
-- [x] **Am Gerät geprüft** — Joplin-Android 3.6.21, Xperia 5 III, Android 16,
-      WebView Chrome 149 (Diagnose-Bereich im Panel):
-  - Panel und Panel-Button funktionieren
-  - **OSM-Kachel lädt (256×256), `fetch` auf Nominatim liefert 200** — keine CSP-Sperre.
-    Damit sind Karte im Panel, Reverse-Geocoding und GPX-Rendering technisch frei.
+- [x] **Checked on the device** — Joplin for Android 3.6.21, Xperia 5 III, Android 16,
+      WebView Chrome 149 (diagnostics section in the panel):
+  - the panel and its toolbar button work
+  - **an OSM tile loads (256×256) and `fetch` against Nominatim returns 200** — no CSP in
+    the way, which clears the map in the panel, reverse geocoding and GPX rendering
   - `isSecureContext: true`
-- [ ] Offen: taugt `navigator.geolocation` wirklich etwas? Die erste Messung prüfte nur die
-      Existenz des Objekts (in Androids WebView auch bei abgeschaltetem Zugriff vorhanden)
-      und `!!joplin.geolocation`, was der Sandbox-Proxy immer mit „wahr“ beantwortet.
-      Beides ist ersetzt durch eine echte `getCurrentPosition`-Abfrage und eine
-      Kontrollprobe auf eine erfundene API.
-- [ ] Offen: Öffnen `geo:`- und `https:`-Links aus dem Panel die jeweilige App?
-- [ ] Offen: Bleibt ein per `data.put` geschriebener Wert stehen, während die Notiz offen ist?
+  - `getCurrentPosition` returns a real fix
 
-### Phase 1 — MVP: Geodaten ansehen & bearbeiten (Kernziel)
+A note on that last point: the first measurement only checked whether the objects existed,
+which proved nothing. `navigator.geolocation` exists in Android's WebView even when access
+is disabled, and `!!joplin.geolocation` is always true because the plugin sandbox answers
+any property access with a proxy. Both were replaced by a real `getCurrentPosition` call
+and a control probe against an invented API.
 
-Panel „Geodaten“, geöffnet über den Plugin-Button im Notiz-Editor:
+### Phase 1 — MVP: view and edit geodata ✅
 
-- **Anzeigen:** Breite/Länge/Höhe als Werte, wahlweise Dezimalgrad oder DMS;
-  Hinweis „keine Geodaten“ wenn 0/0; Links „In Karte öffnen“ (OSM, `geo:`-URI für lokale App)
-- **Bearbeiten:**
-  - zwei Zahlenfelder + Höhe, Validierung (-90..90 / -180..180), Speichern/Verwerfen
-  - **Einfügen & Parsen**: ein Textfeld, das `geo:52.5,13.4`, `52.5163, 13.3777`,
-    `52°30'58"N 13°22'40"E`, `google.com/maps/@…`, `openstreetmap.org/#map=…`,
-    `maps.app.goo.gl`-Kurzlinks (nur online auflösbar) frisst
-  - Buttons: **Löschen** (auf 0/0), **Lat/Lon tauschen**, **Von anderer Notiz übernehmen**
-  - **Aktueller Standort**: ein Tap, holt den Fix per `navigator.geolocation`
-    (`enableHighAccuracy`), schreibt ihn samt Höhe in die Notiz und meldet die Genauigkeit;
-    scheitert die Abfrage, verweist die Meldung auf das Einfügefeld
-- **Karte (optional, nur online):** kleine Leaflet-Karte, Pin verschiebbar → setzt Koordinaten
+The "Geodata" panel, opened from the plugin button in the note editor:
 
-*Deliverable: installierbares `.jpl`, das den Hauptwunsch erfüllt.*
+- **View:** latitude/longitude/altitude as values, in decimal degrees and DMS; a hint when
+  there are none (0/0); links to OSM and to the local maps app (`geo:` URI)
+- **Edit:** three fields with validation (-90..90 / -180..180), save/discard
+- **Paste & detect:** one text field that swallows `geo:` URIs, decimal degrees, DMS and
+  Google/OSM/Apple links, with a live preview
+- **Current location:** one tap fills the fields via `navigator.geolocation`
+  (`enableHighAccuracy`) and reports the accuracy; saving stays an explicit step
+- **Map:** a small Leaflet map, tap or drag the pin to set coordinates
+- **Swap latitude/longitude**, **clear** (with a confirming second tap)
 
-**Stand 2026-08-15:** Anzeige (dezimal + DMS), Bearbeiten der drei Felder mit Validierung,
-Einfügen+Erkennen mit Live-Vorschau, aktueller Standort per Tap, Tauschen, Löschen (mit
-Bestätigungs-Tap), Links zu OSM und Karten-App, Diagnose-Bereich — alles am Gerät bestätigt.
+About the map: Leaflet 1.9.4 is copied from `node_modules` into `src/panel/vendor/`
+(`npm run vendor`, hooked into the `dist` script) and therefore travels inside the `.jpl` —
+only the tiles need a network. The viewport only jumps when a different note is shown, so
+your own panning and zooming survive a save. A run of `tileerror` events raises an offline
+hint. The whole map can be switched off through the `showMap` setting. The pin is drawn in
+CSS rather than using Leaflet's default icon, which would load PNGs.
 
-Dazu die **Karte**: Leaflet 1.9.4 wird aus `node_modules` nach `src/panel/vendor/` kopiert
-(`npm run vendor`, hängt am `dist`-Skript) und ist damit im `.jpl` enthalten — nur die
-Kacheln brauchen Netz. Tap oder Pin-Ziehen setzt die Koordinaten in die Felder, gespeichert
-wird weiterhin erst auf Knopfdruck. Der Kartenausschnitt springt nur beim Notizwechsel,
-damit eigenes Zoomen nicht bei jedem Speichern verlorengeht. Häufen sich `tileerror`s,
-erscheint ein Offline-Hinweis. Abschaltbar über die Einstellung `showMap`.
-Der Pin ist bewusst CSS statt Leaflets Standard-Icon, das PNGs nachladen würde.
+Still open: a decimal/DMS toggle.
 
-Offen: „Von anderer Notiz übernehmen", Umschalter Dezimal/DMS.
+### Phase 2 — insert the location into the note ✅
 
-### Phase 2 — Standort in die Notiz einfügen ✅
+A `geodata.insertLocation` command and a button in the panel. Text goes in through
+`insertText` — the same command Joplin's own "Insert time" uses on both platforms — so it
+lands at the cursor rather than at the end of the note (a `data.put` on `body` would
+collide with the open editor).
 
-**Stand 2026-08-15:** Command `geodata.insertLocation` mit Toolbar-Knopf und ein Knopf im
-Panel. Eingefügt wird über `insertText` — dasselbe Command, das Joplins eigenes
-„Datum einfügen“ auf beiden Plattformen benutzt, also an der Cursorposition statt am
-Notizende (ein `data.put` auf `body` würde mit dem offenen Editor kollidieren).
+The command tries for a fresh fix in the plugin process first and falls back to the
+coordinates already stored on the note. Whether the plugin process can reach the GPS at all
+is, unlike the panel, unproven, hence the hard timeout and the fallback. It has **no
+toolbar button**: in practice the fallback always won, so the button would have inserted
+the note's stored position nearly every time. It stays registered for the desktop command
+palette. The panel button uses the values currently *displayed*, so a point just picked on
+the map can go into the text without being saved first.
 
-Der Toolbar-Weg versucht zuerst einen frischen Fix im Plugin-Prozess und fällt auf die
-gespeicherten Geodaten der Notiz zurück; ob der Plugin-Prozess selbst ans GPS kommt, ist
-im Gegensatz zum Panel ungeprüft, deshalb der harte Timeout und der Fallback.
-Der Panel-Knopf nimmt die *angezeigten* Feldwerte, damit ein frisch auf der Karte
-gesetzter Punkt ohne Zwischenspeichern in den Text kann.
+The template is configurable (`insertTemplate`); `{place}` goes through Nominatim with a
+cache and degrades silently to an empty string. Unknown placeholders are left visible
+rather than leaving a hole in the note.
 
-Vorlage frei konfigurierbar (`insertTemplate`), `{place}` per Nominatim mit Cache und
-stiller Degradierung auf leer. Unbekannte Platzhalter bleiben sichtbar stehen, statt ein
-Loch zu hinterlassen. 10 Testfälle in `test/template.js`.
+### Phase 3 — comfort for the travel journal (open)
 
-Ursprüngliche Planung:
+- setting: adopt geodata automatically when a note is created (from the last known position)
+- show the place name in the panel (reverse geocoding, cached, optional, mind the Nominatim
+  policy)
+- bulk view: "all notes in this notebook without geodata", for filling them in quickly
+- export a notebook's notes as GPX/GeoJSON (the route of a trip)
 
-- Command **„Standort einfügen“** (Editor-Toolbar/Menü, sofern auf Mobile verfügbar)
-- Einfügeformat über Settings konfigurierbar, z. B.
-  `📍 [52.5163, 13.3777](geo:52.5163,13.3777)` oder Markdown-Link auf OSM,
-  optional mit Zeitstempel und (online) Ortsname via Nominatim
-- Quelle der Koordinaten: aktueller Standort *oder* die Geodaten der Notiz
-- Optional: Ortsname als Notiz-Titel-Vorschlag
+### Phase 4 — show GPX tracks ✅ (image export still open)
 
-### Phase 3 — Komfort fürs Reisetagebuch
+```gpx blocks are rendered as an OSM map in the note viewer.
 
-- Setting „Geodaten beim Anlegen automatisch übernehmen“ (aus letzter bekannter Position)
-- Panel zeigt Ortsnamen (Reverse-Geocoding, gecacht, abschaltbar, Nominatim-Policy beachten)
-- Massenaktion: „Alle Notizen dieses Ordners ohne Geodaten anzeigen“ → schnelles Nachpflegen
-- Export der Notizen eines Ordners als GPX/GeoJSON (Reiseroute)
+Structure: `src/gpx/contentScript.ts` (built as an `extraScript`, because Joplin
+`require()`s the file) only produces the container and passes the source through; the
+drawing happens in `src/gpx/gpxViewer.js`. That viewer script has to stay **plain JS** —
+content script assets are copied verbatim and loaded with a `<script>` tag, where the
+CommonJS wrapper webpack puts around extra scripts (`exports.default = …`) would die with
+"exports is not defined". Assets are resolved flat next to the content script, which is why
+Leaflet sits in `src/gpx/` a second time (via `npm run vendor`).
 
-### Phase 4 — GPX-Tracks darstellen (Grundfunktion steht)
+The block is wrapped in `joplin-editable`/`joplin-source`: the rich text editor can rebuild
+the code block from it, Joplin's own stylesheet hides the source, and the viewer script
+reads the GPX back out of it. Multiple `<trkseg>` elements stay separate lines so that a
+pause in recording is not drawn as a straight line across the map; drawing is thinned to
+2000 points while the statistics use all of them. Ascent only counts gains of 3 m or more
+against the last accepted value — without that threshold, GPS noise adds up to imaginary
+climbing.
 
-**Stand 2026-08-16:** ```gpx-Blöcke werden im Viewer als OSM-Karte gerendert.
+**Attached files:** if the block holds nothing but a resource reference, the track is
+fetched along **two routes**, because neither works everywhere:
 
-Aufbau: `src/gpx/contentScript.ts` (als `extraScripts` gebaut, weil Joplin die Datei
-`require()`t) liefert nur den Container und reicht die Quelle durch; gezeichnet wird in
-`src/gpx/gpxViewer.js`. Dieses Viewer-Skript muss **reines JS** bleiben — Content-Script-
-Assets werden unverändert kopiert und per `<script>` geladen, der CommonJS-Wrapper der
-`extraScripts` (`exports.default = …`) würde dort mit `exports is not defined` sterben.
-Assets werden flach neben dem Content-Script aufgelöst, deshalb liegt Leaflet ein zweites
-Mal in `src/gpx/` (per `npm run vendor`).
+1. The viewer loads the file directly, through the URL the renderer also builds for images
+   (`ruleOptions.resources` / `resourceBaseUrl` / `itemIdToUrl`, see Joplin's
+   `imageReplacement`) — using **`XMLHttpRequest`, not `fetch`**. Chromium does not support
+   the `file://` scheme in `fetch` at all, which always ends in "Failed to fetch"; XHR reads
+   it, because Joplin has to grant the webview file access or images in notes would not
+   appear either. **The only route that works on Android** (confirmed on the device,
+   2026-08-17).
+2. Asking the plugin process through `webviewApi.postMessage`, which uses
+   `joplin.data.get(['resources', id, 'file'])`. **Works on the desktop**; on Android Joplin
+   answers `Unsupported encoding: buffer`, because the mobile fsDriver does not know the
+   `Buffer` encoding that the REST route hardcodes.
 
-Der Block wird in `joplin-editable`/`joplin-source` verpackt: der Rich-Text-Editor kann
-daraus wieder den Codeblock bauen, Joplins eigenes Stylesheet blendet die Quelle aus, und
-das Viewer-Skript liest das GPX von dort. Mehrere `<trkseg>` bleiben getrennte Linien, damit
-Aufnahmepausen nicht als Luftlinie erscheinen; zum Zeichnen wird auf 2000 Punkte
-ausgedünnt, gerechnet wird mit allen. Der Anstieg summiert nur Zuwächse ab 3 m gegen den
-letzten akzeptierten Wert, sonst summiert sich GPS-Rauschen zu Fantasie-Höhenmetern.
+On route 2 the file body arrives as a Buffer, a serialised `{ type: 'Buffer', data: [...] }`,
+a typed array or already as text, depending on the platform; `decodeToText()` normalises all
+of them. Files above 20 MB are refused.
 
-**Angehängte Dateien (2026-08-16):** Enthält der Block nur einen Ressourcen-Verweis, wird
-der Track auf **zwei Wegen** versucht, weil keiner auf beiden Plattformen geht:
+Below the map there are two links: the start point as a `geo:` URI, and — for attached
+files — "open the track in another app", built exactly like Joplin's own resource links
+(`joplin://<id>` plus the `postMessageSyntax` from `ruleOptions`) so the tap goes through
+Joplin's attachment handling into the system's app chooser.
 
-1. Der Viewer lädt die Datei direkt über die URL, die der Renderer auch für Bilder baut
-   (`ruleOptions.resources` / `resourceBaseUrl` / `itemIdToUrl`, siehe Joplins
-   `imageReplacement`) — und zwar **per `XMLHttpRequest`, nicht per `fetch`**.
-   Chromium unterstützt das Schema `file://` in `fetch` überhaupt nicht, das endet immer
-   mit „Failed to fetch“; XHR liest es, weil Joplin dem WebView Dateizugriff geben muss,
-   sonst würden Bilder in Notizen nicht erscheinen. **Der einzige Weg, der auf Android
-   funktioniert** (am Gerät bestätigt, 2026-08-17).
-2. Nachfrage beim Plugin-Prozess per `webviewApi.postMessage`, der
-   `joplin.data.get(['resources', id, 'file'])` benutzt. **Funktioniert auf dem Desktop**,
-   auf Android antwortet Joplin mit `Unsupported encoding: buffer` — der mobile fsDriver
-   kennt die Kodierung `Buffer` nicht, die die REST-Route fest verdrahtet hat.
+**Important for users:** the file must be linked as `[name](:/id)`, not as a bare ID.
+`Note.linkedItemIds` uses `extractResourceUrls`, which only understands Markdown link syntax
+(which is why Joplin's whiteboard needed a special case there). Without the link the
+resource is not associated with the note: it does not appear in `ruleOptions.resources`, so
+route 1 has no URL — and worse, it counts as orphaned and can be cleaned up.
 
-Der Dateirumpf kommt bei Weg 2 je nach Plattform als Buffer, als serialisiertes
-`{ type: 'Buffer', data: [...] }`, als typisiertes Array oder als Text an; `decodeToText()`
-normalisiert alle Formen. Dateien über 20 MB werden abgelehnt.
+Still open: the **image export**. `joplin.imaging` and `joplin.fs` are desktop-only; on
+mobile the only conceivable way is a `data:` URL inside the note.
 
-**Wichtig für Nutzer:** Die Datei muss als `[name](:/id)` verlinkt sein, nicht als nackte
-ID. `Note.linkedItemIds` benutzt `extractResourceUrls`, das nur Markdown-Link-Syntax kennt
-(deshalb brauchte Joplins Whiteboard dort einen Sonderfall). Ohne Link ist die Ressource
-für Joplin nicht mit der Notiz verknüpft: Sie taucht nicht in `ruleOptions.resources` auf,
-Weg 1 hat also keine URL — und schlimmer, sie gilt als verwaist und kann aufgeräumt werden.
+### ~~Phase A — upstream PR to Joplin~~ (dropped)
 
-Offen: der **Bildexport** — `joplin.imaging` und `joplin.fs` sind desktop-only, auf Mobile
-bliebe nur eine `data:`-URL in der Notiz.
-
-Ursprüngliche Planung:
-
-- **Content-Script** (`MarkdownItPlugin`) rendert Blöcke:
-  ```` ```gpx ```` mit **inline GPX** *oder* Verweis `resource: :/<resourceId>` auf eine
-  angehängte `.gpx`-Datei (empfohlen — inline bläht die Notiz auf; große Tracks kommen
-  ohnehin aus OsmAnd/GPSLogger als Datei)
-- Viewer-Script parst GPX, zeichnet Track + Start/Ziel auf Leaflet/OSM,
-  zeigt Distanz, Dauer, Höhenprofil
-- **Als Bild speichern:** offen — Rasterisierung über Canvas ist machbar, das *Speichern*
-  als Joplin-Ressource braucht auf Mobile einen Weg ohne Dateisystem (in Phase 0 prüfen).
-  Fallbacks: (a) Bild als `data:`-URL direkt in die Notiz, (b) Live-Rendering statt Bild
-  (für ein Tagebuch meist ausreichend), (c) Bildexport nur auf Desktop.
-
-### ~~Phase A — Upstream-PR an Joplin~~ (entfallen)
-
-Sollte `joplin.geolocation.currentPosition()` in der Plugin-API nachrüsten. Hinfällig, weil
-`navigator.geolocation` im Panel-WebView bereits funktioniert. Bliebe nur relevant, falls
-iOS-Unterstützung dazukommen soll oder eine Joplin-Version den Zugriff wieder zumacht.
+Would have added `joplin.geolocation.currentPosition()` to the plugin API. Moot, because
+`navigator.geolocation` already works in the panel webview. It would only become relevant
+if iOS support were wanted, or if some Joplin version closed the access again.
 
 ---
 
-## 5. Risiken / offene Punkte
+## 5. Risks and open points
 
-- ~~**GPS aus dem Plugin**~~ — erledigt, funktioniert auf Android direkt. Restrisiko: Joplin
-  oder Android könnten den Zugriff in einer künftigen Version wieder schließen; deshalb
-  bleibt der Einfüge-Weg als vollwertige Alternative erhalten und wird nicht wegoptimiert.
-- ~~**CSP im Plugin-WebView**~~ — erledigt, Kacheln und `fetch` sind nicht blockiert.
-- **Theme-Variablen** — Joplins `--joplin-*`-Paare nicht mischen: Vorder- und Hintergrundfarbe
-  müssen aus demselben Farbschema stammen, sonst entsteht im Dark-Theme Unlesbares
-  (passiert mit `colorCorrect` auf `color4`).
-- **Mobile-API-Lücken** — Menüpunkte/Toolbar-Buttons evtl. nicht überall verfügbar; Fallback ist
-  immer das Panel.
-- **Nominatim** — Nutzungsbedingungen (max. 1 req/s, aussagekräftiger User-Agent), daher
-  optional, gecacht und per Default aus.
-- **Sync-Konflikte** — Geodaten-Änderung ist ein normales Note-Update; unkritisch, erhöht aber
-  `updated_time`.
-- **Batterie/Genauigkeit** — bei später verfügbarem GPS: Timeout + Genauigkeitsanzeige vorsehen,
-  nicht blind auf den ersten Fix vertrauen.
+- ~~**GPS from the plugin**~~ — done, works directly on Android. Residual risk: Joplin or
+  Android could close the access again in a future version, which is why the paste route is
+  kept as a full alternative rather than optimised away.
+- ~~**CSP in the plugin webview**~~ — done, tiles and `fetch` are not blocked.
+- **Theme variables** — do not mix Joplin's `--joplin-*` pairs: foreground and background
+  have to come from the same colour scheme, or the dark theme turns unreadable (which is
+  what `colorCorrect` on `color4` produced).
+- **The mobile viewer rebuilds the note DOM more than once**, and not every pass announces
+  itself with `joplin-noteDidUpdate`. Anything drawn in there has to survive that — hence
+  the "already drawn" marker on the map element rather than on its container, plus a
+  `MutationObserver`.
+- **Nominatim** — usage policy (at most 1 request/s, a meaningful user agent), so it stays
+  optional, cached and off by default.
+- **Sync conflicts** — changing geodata is an ordinary note update; harmless, but it does
+  raise `updated_time`.
+- **Battery and accuracy** — use a timeout, show the accuracy, and do not trust the first
+  fix blindly.
 
 ---
 
-## 6. Nebenbei geklärt
+## 6. Things settled along the way
 
-Entscheidungen und Erkenntnisse, die unterwegs im Gespräch anfielen und sonst nur im
-Chatverlauf stünden.
+Decisions and findings that came up in passing and would otherwise only live in a chat log.
 
-### Plugin-IDs sind Reverse-DNS
+### Plugin IDs are reverse DNS
 
-`io.github.helge42.geodata` folgt derselben Konvention wie Java-Packages, Android-App-IDs
-und macOS-Bundle-IDs; Joplins Generator fragt danach („such as `com.example.MyPlugin` or a
-UUID“). Der Sinn: Eindeutigkeit ohne zentrale Vergabestelle — der Namensraum gehört dem,
-der die Domain besitzt. Deshalb der Wechsel weg von `eu.muennich.…`, das nur aus der
-Mail-Domain abgeleitet war: GitHub-Namensräume gelten in der Praxis als gleichwertiger
-Eigentumsnachweis, und `helge42` gehört nachweislich uns.
+`io.github.helge42.geodata` follows the same convention as Java packages, Android
+application IDs and macOS bundle identifiers; Joplin's generator asks for exactly that
+("such as `com.example.MyPlugin` or a UUID"). The point is uniqueness without a central
+registry — the namespace belongs to whoever owns the domain. Hence the move away from
+`eu.muennich.…`, which was merely derived from an email domain: GitHub namespaces serve as
+an equivalent proof of ownership in practice.
 
-Die ID ist die Identität des Plugins. Ein Wechsel bedeutet für alle Nutzer deinstallieren
-und neu installieren — also möglichst früh festlegen.
+The ID is the plugin's identity. Changing it means every user has to uninstall and
+reinstall, so it should be settled early.
 
-### Verteilung: Releases statt `publish/` im Git
+### Distribution: releases rather than `publish/` in Git
 
-Ein `.jpl` ist ein gepacktes Archiv; bei jedem Build ändern sich praktisch alle Bytes, Git
-kann nichts deltakomprimieren und legt jedes Mal eine volle Kopie ab. Wichtiger noch:
-Aus dem Repo bekämen Mitleser immer nur „was gerade in `main` liegt“ — ohne Version, ohne
-Changelog. Deshalb GitHub-Releases mit fester Latest-URL, `publish/` bleibt ignoriert.
+A `.jpl` is a packed archive; practically every byte changes on each build, Git cannot
+delta-compress it and stores a full copy each time. More importantly, readers of the repo
+would only ever get "whatever is in `main` right now" — no version, no changelog. Hence
+GitHub releases with a stable latest URL, and `publish/` stays ignored.
 
-### Commit-Adressen vor dem ersten Push
+### Commit addresses before the first push
 
-Die ersten Commits trugen eine private Adresse. Da noch nichts gepusht war, wurde die
-Historie vor dem ersten Push per `git filter-branch` auf
-`19750682+helge42@users.noreply.github.com` umgeschrieben. In einem öffentlichen Repo ist
-das später nur noch mit Neuschreiben der Historie zu korrigieren — also vorher prüfen.
+The first commits carried a private address. Since nothing had been pushed, the history was
+rewritten with `git filter-branch` onto `19750682+helge42@users.noreply.github.com` before
+the first push. In a public repository this can only be fixed by rewriting history later —
+so check before pushing.
 
-Nebenbei: `.claude/settings.local.json` war nie im Repo, weil das globale
-`~/.config/git/ignore` es bereits ausschließt.
+### The `workflow` scope for GitHub Actions
 
-### `workflow`-Scope für GitHub Actions
+GitHub rejects pushes that create or change files under `.github/workflows/` when the app's
+OAuth token lacks the `workflow` scope, regardless of repository permissions. Add it with
+`gh auth refresh -h github.com -s workflow`.
 
-GitHub lehnt Pushes ab, die Dateien unter `.github/workflows/` anlegen oder ändern, wenn
-das OAuth-Token der App den `workflow`-Scope nicht hat — unabhängig von den
-Repo-Rechten. Nachreichen mit `gh auth refresh -h github.com -s workflow`.
+### Node 20 deprecation on the runners
 
-### Node-20-Abkündigung auf den Runnern
+`actions/checkout@v4` and `actions/setup-node@v4` run on Node 20 and are forced onto Node 24
+by GitHub, with a warning in the run. Moving to `@v5` settles it. This concerns the actions
+themselves, not `node-version: '20'` for the build.
 
-`actions/checkout@v4` und `actions/setup-node@v4` laufen auf Node 20 und werden von GitHub
-zwangsweise auf Node 24 umgebogen — mit Warnung im Lauf. Ein Umstieg auf `@v5` erledigt
-das. Betrifft nur die Actions selbst, nicht `node-version: '20'` für den Build.
+### `geo:` links work in the note viewer
 
-### `geo:`-Links im Notiz-Viewer funktionieren
+Confirmed on the device: `[text](geo:52.5,13.4)` in rendered note text opens the maps app.
+That is why `{geo}` is the default in the insert template.
 
-Am Gerät bestätigt: `[Text](geo:52.5,13.4)` im gerenderten Notiztext öffnet die Karten-App.
-`{geo}` ist deshalb die Voreinstellung der Einfüge-Vorlage.
+### The rich text editor cannot take inserted Markdown syntax
 
-### Der Rich-Text-Editor verträgt keine eingefügte Markdown-Syntax
+It treats text inserted through `insertText` literally and escapes the brackets when
+serialising back to Markdown — `[52.5, 13.3](geo:…)` becomes `\[52.5, 13.3\](geo:…)` and the
+link is dead. There is no portable way to hand it a real link (desktop TinyMCE could do
+`mceInsertContent`, the ProseMirror editor on mobile could not). The case is detected
+through the `editor.codeView` setting (`false` means rich text; it exists for desktop **and**
+mobile), and then the link syntax is stripped and only the label inserted.
 
-Er nimmt über `insertText` eingefügten Text wörtlich und maskiert beim Serialisieren zurück
-nach Markdown die Klammern — aus `[52.5, 13.3](geo:…)` wird `\[52.5, 13.3\](geo:…)`, der
-Link ist tot. Einen portablen Weg, ihm einen echten Link zu übergeben, gibt es nicht
-(Desktop-TinyMCE könnte `mceInsertContent`, der ProseMirror-Editor auf Mobile nicht).
-Erkannt wird der Fall über die Einstellung `editor.codeView` (`false` = Rich-Text, existiert
-für Desktop **und** Mobile); dann wird die Link-Syntax entfernt und nur das Label eingefügt.
+### Editor availability can be queried, if only indirectly
 
-### Editor-Verfügbarkeit ist abfragbar, wenn auch nur indirekt
-
-Die Plugin-API kennt keinen Zustand „Editor offen“. Aber `CommandService.execute` wirft
-`Cannot execute a command without a runtime`, wenn kein Editor gemountet ist. Ein Versuch
-mit dem lesenden Command `selectedText` ist daher eine gefahrlose Probe — damit wird
-„In Notiz einfügen“ im Panel ausgegraut, solange die Notiz nur angesehen wird.
+The plugin API has no "editor is open" state. But `CommandService.execute` throws
+`Cannot execute a command without a runtime` when no editor is mounted, so an attempt with
+the read-only `selectedText` command is a harmless probe — which is how "insert into note"
+in the panel greys itself out while a note is merely being viewed.

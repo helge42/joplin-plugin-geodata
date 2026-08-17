@@ -1,60 +1,60 @@
 # Joplin Geodata
 
-Ein Joplin-Plugin, um die Geodaten einer Notiz **anzusehen und zu bearbeiten** — gebaut
-für die Android-App, wo Joplin die Koordinaten bisher nur als Karte öffnen, aber nicht
-ändern kann.
+A Joplin plugin to **view and edit** a note's geolocation — built for the Android app,
+where Joplin can open the coordinates on a map but not change them.
 
-Entstanden fürs Reisetagebuch: In geteilten Notizbüchern trägt Joplin beim Anlegen einer
-Notiz oft keine Position ein, und ohne Bearbeitungsmöglichkeit bleibt die Notiz dann
-dauerhaft ohne Ort.
+It exists because of travel journalling: in shared notebooks Joplin often fails to record
+a position when a note is created, and without a way to edit it, that note stays without a
+place forever.
 
-## Funktionen
+## Features
 
-- **Anzeigen** der Koordinaten in Dezimalgrad und in Grad/Minuten/Sekunden, dazu Links zu
-  OpenStreetMap und zur Karten-App des Geräts (`geo:`-URI)
-- **Aktuellen Standort ermitteln** — ein Tap füllt Position und Höhe samt Genauigkeit in die
-  Felder; gespeichert wird erst mit „Speichern", damit nichts ungefragt in die Notiz wandert
-- **Karte** (OpenStreetMap): zeigt die Position der Notiz, ein Tap oder das Ziehen des Pins
-  setzt einen neuen Punkt — gespeichert wird erst auf Knopfdruck. Leaflet ist im Plugin
-  enthalten, nur die Kacheln brauchen Netz; ohne Verbindung bleibt der Rest voll bedienbar.
-  Abschaltbar unter Einstellungen → Geodaten.
-- **Manuell bearbeiten** mit Validierung von Breite, Länge und Höhe
-- **Einfügen & erkennen**: ein Feld, das Koordinaten aus so ziemlich allem herausholt, was
-  man aus einer Karten-App teilt — mit Live-Vorschau, bevor etwas gespeichert wird:
+- **View** the coordinates in decimal degrees and in degrees/minutes/seconds, with links to
+  OpenStreetMap and to the device's maps app (`geo:` URI)
+- **Get the current location** — one tap fills position, altitude and accuracy into the
+  fields; nothing is written until you press Save, so fetching a fix never changes the note
+  by itself
+- **Map** (OpenStreetMap): shows where the note is, and a tap or a dragged pin sets a new
+  point — again saved only on request. Leaflet ships inside the plugin, so only the tiles
+  need a network; without one, everything else keeps working. Can be turned off under
+  Settings → Geodata.
+- **Edit by hand**, with validation of latitude, longitude and altitude
+- **Paste & detect**: a field that digs the coordinates out of just about anything a maps
+  app hands you, with a live preview before anything is saved:
 
-  | Eingabe | Beispiel |
+  | Input | Example |
   |---|---|
-  | `geo:`-URI | `geo:52.5163,13.3777` · `geo:0,0?q=52.5163,13.3777(Ziel)` |
-  | Dezimalgrad | `52.5163, 13.3777` · `52,5163 13,3777` · `N 52.5163 E 13.3777` |
-  | Grad/Minuten/Sekunden | `52°30'58.7"N 13°22'39.7"E` |
+  | `geo:` URI | `geo:52.5163,13.3777` · `geo:0,0?q=52.5163,13.3777(Target)` |
+  | Decimal degrees | `52.5163, 13.3777` · `52,5163 13,3777` · `N 52.5163 E 13.3777` |
+  | Degrees/minutes/seconds | `52°30'58.7"N 13°22'39.7"E` |
   | OpenStreetMap | `…/?mlat=52.5163&mlon=13.3777` · `…/#map=15/52.5163/13.3777` |
   | Google Maps | `…/@52.5163,13.3777,15z` · `…!3d52.5163!4d13.3777` · `?q=…` |
-  | Apple/Bing u. a. | `?ll=52.5163,13.3777` |
+  | Apple/Bing and others | `?ll=52.5163,13.3777` |
 
-  Kurzlinks (`maps.app.goo.gl`) enthalten keine Koordinaten und werden mit einer
-  Erklärung abgelehnt statt still zu scheitern.
-- **Standort als Text in die Notiz einfügen** — an der Cursorposition, über den Knopf im
-  Panel. Die Vorlage ist frei konfigurierbar:
+  Shortened links (`maps.app.goo.gl`) carry no coordinates at all and are rejected with an
+  explanation rather than failing silently.
+- **Insert the location as text** into the note, at the cursor, from the panel. The
+  template is yours to configure:
 
-  | Platzhalter | Ergebnis |
+  | Placeholder | Result |
   |---|---|
-  | `{lat}` `{lon}` `{alt}` | `52.5163` · `13.3777` · Höhe in Metern, leer wenn unbekannt |
+  | `{lat}` `{lon}` `{alt}` | `52.5163` · `13.3777` · altitude in metres, empty if unknown |
   | `{dms}` | `52°30'58.7"N 13°22'39.7"E` |
-  | `{geo}` | `geo:`-URI, öffnet die Karten-App des Geräts |
-  | `{osm}` | Link auf OpenStreetMap |
+  | `{geo}` | `geo:` URI, opens the device's maps app |
+  | `{osm}` | link to OpenStreetMap |
   | `{date}` `{time}` | `2026-08-15` · `14:35` |
-  | `{place}` | Ortsname von OpenStreetMap (braucht Netz, sonst leer) |
+  | `{place}` | place name from OpenStreetMap (needs a network, empty otherwise) |
 
-  Voreinstellung: `📍 [{lat}, {lon}]({geo})` — der `geo:`-Link öffnet auf dem Handy direkt
-  die Karten-App. Eingefügt wird, was im Panel steht, auch ein gerade auf der Karte
-  gesetzter Punkt; die Geodaten der Notiz bleiben davon unberührt.
+  Default: `📍 [{lat}, {lon}]({geo})` — on a phone the `geo:` link opens the maps app
+  directly. What gets inserted is whatever the panel currently shows, including a point you
+  just picked on the map; the note's own coordinates are left untouched.
 
-  Im **Rich-Text-Editor** wird nur der Text ohne Link eingefügt: dieser Editor nimmt
-  eingefügten Text wörtlich und maskiert beim Zurückschreiben die Klammern, sodass
-  `\[52.5, 13.3\](geo:…)` in der Notiz stünde.
-- **GPX-Tracks in der Notiz anzeigen**: ein Codeblock mit `gpx` als Sprache wird beim
-  Betrachten als OpenStreetMap-Karte gezeichnet, mit Start- und Zielpunkt sowie Länge,
-  Anstieg, Dauer und Punktzahl darunter.
+  In the **rich text editor** only the text is inserted, without the link: that editor
+  takes inserted text literally and escapes the brackets when it writes Markdown back, so
+  the note would end up holding `\[52.5, 13.3\](geo:…)`.
+- **Show GPX tracks in the note**: a code block with `gpx` as its language is drawn as an
+  OpenStreetMap map when the note is viewed, with start and end markers and distance,
+  ascent, duration and point count below it.
 
   ````markdown
   ```gpx
@@ -66,10 +66,9 @@ dauerhaft ohne Ort.
   ```
   ````
 
-  Statt das GPX hineinzukopieren, kann der Block auch auf eine **angehängte Datei**
-  verweisen — das ist für echte Tracks der bessere Weg, weil die Notiz sonst schnell um
-  Hunderte Kilobyte wächst. Die `.gpx` an die Notiz anhängen und den eingefügten Link in
-  den Block setzen:
+  Instead of pasting the GPX itself, the block can point at an **attached file** — the
+  better way for real tracks, which would otherwise grow the note by hundreds of kilobytes.
+  Attach the `.gpx` to the note and move the link Joplin inserts into the block:
 
   ````markdown
   ```gpx
@@ -77,58 +76,61 @@ dauerhaft ohne Ort.
   ```
   ````
 
-  **Bitte die Link-Schreibweise `[name](:/id)` benutzen**, nicht die nackte ID: Joplin
-  erkennt nur so, dass die Datei zu dieser Notiz gehört. Ohne Link gilt sie als verwaist
-  und kann beim Aufräumen verlorengehen.
+  **Please use the link form `[name](:/id)`**, not the bare ID: it is the only way Joplin
+  recognises that the file belongs to this note. Without it the file counts as orphaned and
+  can be removed when Joplin cleans up.
 
-  Unter der Karte steht **„Startpunkt in Karten-App"**, und bei einer angehängten Datei
-  zusätzlich **„Track in anderer App öffnen"** — damit landet die `.gpx` über Joplins
-  Anhang-Mechanismus in der App-Auswahl des Systems, also etwa in OsmAnd.
+  Below the map you get **"Startpunkt in Karten-App"**, and for an attached file also
+  **"Track in anderer App öffnen"** — that hands the `.gpx` to the system's app chooser
+  through Joplin's own attachment handling, so it can go straight into OsmAnd.
 
-  Aufnahmepausen werden nicht als Luftlinie durchgezogen, sehr lange Tracks zum Zeichnen
-  ausgedünnt (die Statistik rechnet mit allen Punkten). Ohne Netz bleibt die Kartenfläche
-  leer, die Zahlen stehen trotzdem da.
-- **Breite/Länge tauschen** und **Löschen** (mit Bestätigungs-Tap)
-- **Diagnose**-Bereich, der Umgebung und Standortzugriff des Plugin-WebViews prüft
+  Gaps in a recording are not drawn as straight lines across the map, and very long tracks
+  are thinned out for drawing (the statistics still use every point). Without a network the
+  map area stays empty, but the numbers are there.
+- **Swap latitude/longitude** and **clear** (with a confirming second tap)
+- A **diagnostics** section that checks the plugin webview's environment and location access
 
 ## Installation
 
-**Fertige Datei:** [neueste Version herunterladen](https://github.com/helge42/joplin-plugin-geodata/releases/latest)
+**Ready-made file:** [download the latest release](https://github.com/helge42/joplin-plugin-geodata/releases/latest)
 (`io.github.helge42.geodata.jpl`).
 
-Auf dem Handy: Einstellungen → Plugins → aus Datei installieren.
-Auf dem Desktop: Werkzeuge → Optionen → Plugins → aus Datei installieren.
+On the phone: Settings → Plugins → install from file.
+On the desktop: Tools → Options → Plugins → install from file.
 
-Benötigt Joplin 3.6 oder neuer, Desktop und Mobile.
+Requires Joplin 3.6 or newer, on desktop and mobile. On iOS, Joplin only allows
+recommended plugins from its repository, so this one cannot be installed there; the web
+app at [app.joplincloud.com](https://app.joplincloud.com) does accept `.jpl` files.
 
-**Selbst bauen:**
+**Build it yourself:**
 
 ```bash
 npm install
-npm run dist   # erzeugt publish/io.github.helge42.geodata.jpl
+npm run dist   # produces publish/io.github.helge42.geodata.jpl
 ```
 
-## Entwicklung
+## Development
 
 ```bash
-npm test      # Parser-Tests, ohne Test-Framework
-npm run dist  # baut dist/ und publish/*.jpl
+npm test      # tests, no test framework involved
+npm run dist  # builds dist/ and publish/*.jpl
 ```
 
-Neue Version veröffentlichen: `version` in `src/manifest.json` hochziehen, committen, dann
+Publishing a new version: raise `version` in `src/manifest.json`, commit, then
 
 ```bash
 git tag v0.2.0 && git push --tags
 ```
 
-Der Workflow in `.github/workflows/release.yml` baut, testet und legt das Release mit der
-`.jpl` an. Er bricht ab, wenn der Tag nicht zur Version im Manifest passt.
+The workflow in `.github/workflows/release.yml` builds, tests and creates the release with
+the `.jpl` attached. It refuses to run if the tag does not match the version in the
+manifest.
 
-Aufbau: Die gesamte Logik (Parsen, Validieren, Speichern) liegt im Plugin-Prozess unter
-`src/`; das Panel unter `src/panel/` ist bewusst dumme UI und schickt nur Absichten per
-`webviewApi.postMessage`. Planung, Rechercheergebnisse und die offenen Punkte stehen in
+Structure: all the logic — parsing, validation, storage — lives in the plugin process under
+`src/`; the panel in `src/panel/` is deliberately dumb UI that only forwards intent through
+`webviewApi.postMessage`. The plan, the research results and the open questions are in
 [PLAN.md](PLAN.md).
 
-## Lizenz
+## Licence
 
 MIT
