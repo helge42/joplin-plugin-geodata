@@ -266,24 +266,20 @@ joplin.plugins.register({
 					return await buildState(noteId, t('message.saved'), 'ok');
 				}
 
-				case 'preview': {
+				// Parsing only fills the panel; writing to the note stays with the Save
+				// button. Saving from here would also flip the mobile note screen back to
+				// the viewer, which is a surprising thing for a paste field to do.
+				case 'parse': {
 					const result = parseLocation(message.text, t);
 					if (!result.coordinates) return { ok: false, hint: result.error };
+
 					return {
 						ok: true,
-						hint: `${result.source}: ${formatDecimal(result.coordinates.latitude)}, ${formatDecimal(result.coordinates.longitude)}`,
+						latitude: formatDecimal(result.coordinates.latitude),
+						longitude: formatDecimal(result.coordinates.longitude),
+						altitude: result.coordinates.altitude ? formatDecimal(result.coordinates.altitude) : '',
+						hint: t('message.applied', { source: result.source }),
 					};
-				}
-
-				case 'apply': {
-					const noteId = await requireNote(message.noteId);
-					if (!noteId) return emptyState(t('message.noNote'), 'error');
-
-					const result = parseLocation(message.text, t);
-					if (!result.coordinates) return await buildState(noteId, result.error, 'error');
-
-					await writeCoordinates(noteId, result.coordinates);
-					return await buildState(noteId, t('message.applied', { source: result.source }), 'ok');
 				}
 
 				case 'clear': {

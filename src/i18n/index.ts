@@ -36,7 +36,6 @@ const en: Dictionary = {
 	'panel.locating': 'Getting location …',
 	'panel.paste': 'Paste & detect',
 	'panel.pastePlaceholder': 'geo:… · maps link · 52.5163, 13.3777',
-	'panel.apply': 'Apply',
 	'panel.swap': 'Swap latitude/longitude',
 	'panel.clear': 'Clear',
 	'panel.clearConfirm': 'Really clear?',
@@ -61,7 +60,7 @@ const en: Dictionary = {
 	// Plugin messages
 	'message.noNote': 'No note selected.',
 	'message.saved': 'Saved.',
-	'message.applied': 'Applied ({source}).',
+	'message.applied': 'Recognised: {source}',
 	'message.cleared': 'Geodata cleared.',
 	'message.inserted': 'Inserted: {text}',
 	'message.insertedRichText': ' (rich text editor: as text, without a link)',
@@ -140,7 +139,6 @@ const de: Dictionary = {
 	'panel.locating': 'Standort wird ermittelt …',
 	'panel.paste': 'Einfügen & erkennen',
 	'panel.pastePlaceholder': 'geo:… · Maps-Link · 52.5163, 13.3777',
-	'panel.apply': 'Übernehmen',
 	'panel.swap': 'Breite/Länge tauschen',
 	'panel.clear': 'Löschen',
 	'panel.clearConfirm': 'Wirklich löschen?',
@@ -163,7 +161,7 @@ const de: Dictionary = {
 
 	'message.noNote': 'Keine Notiz ausgewählt.',
 	'message.saved': 'Gespeichert.',
-	'message.applied': 'Übernommen ({source}).',
+	'message.applied': 'Erkannt: {source}',
 	'message.cleared': 'Geodaten gelöscht.',
 	'message.inserted': 'Eingefügt: {text}',
 	'message.insertedRichText': ' (Rich-Text-Editor: als Text ohne Link)',

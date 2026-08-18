@@ -33,6 +33,12 @@ export const panelHtml = (t: Translate, dictionary: Dictionary) => {
 
 	<button id="button-locate" class="primary locate" type="button">${t('panel.locate')}</button>
 
+	<div class="section">
+		<label for="field-paste">${t('panel.paste')}</label>
+		<input id="field-paste" type="text" autocomplete="off" placeholder="${t('panel.pastePlaceholder')}">
+		<div class="hint" id="paste-hint"></div>
+	</div>
+
 	<div class="fields">
 		<label for="field-latitude">${t('panel.latitude')}</label>
 		<input id="field-latitude" type="text" inputmode="decimal" autocomplete="off" placeholder="52.516300">
@@ -45,22 +51,13 @@ export const panelHtml = (t: Translate, dictionary: Dictionary) => {
 	</div>
 
 	<div class="buttons">
-		<button id="button-save" class="primary" type="button">${t('panel.save')}</button>
-		<button id="button-reset" type="button">${t('panel.discard')}</button>
-	</div>
-
-	<div class="buttons">
 		<button id="button-insert" type="button">${t('panel.insertIntoNote')}</button>
 	</div>
 	<div class="hint" id="insert-hint"></div>
 
-	<div class="section">
-		<label for="field-paste">${t('panel.paste')}</label>
-		<input id="field-paste" type="text" autocomplete="off" placeholder="${t('panel.pastePlaceholder')}">
-		<div class="hint" id="paste-hint"></div>
-		<div class="buttons">
-			<button id="button-apply" class="primary" type="button">${t('panel.apply')}</button>
-		</div>
+	<div class="buttons">
+		<button id="button-save" class="primary" type="button">${t('panel.save')}</button>
+		<button id="button-reset" type="button">${t('panel.discard')}</button>
 	</div>
 
 	<div class="buttons secondary-row">

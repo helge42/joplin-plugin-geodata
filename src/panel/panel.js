@@ -229,26 +229,32 @@
 		void sendAndRender({ type: 'getState' });
 	});
 
-	$('button-apply').addEventListener('click', async () => {
-		const response = await sendAndRender({ type: 'apply', text: $('field-paste').value });
-		if (response && response.messageKind === 'ok') {
-			$('field-paste').value = '';
-			$('paste-hint').textContent = '';
-		}
-	});
-
-	let previewTimer = null;
+	// Detecting is the action - what is recognised goes straight into the fields and onto
+	// the map. Nothing is written to the note until Save, so a separate "apply" button would
+	// only be a second step to the same place.
+	let parseTimer = null;
 	$('field-paste').addEventListener('input', () => {
-		if (previewTimer) clearTimeout(previewTimer);
-		previewTimer = setTimeout(async () => {
+		if (parseTimer) clearTimeout(parseTimer);
+		parseTimer = setTimeout(async () => {
 			const text = $('field-paste').value;
 			if (!text.trim()) {
 				$('paste-hint').textContent = '';
+				$('paste-hint').classList.remove('error');
 				return;
 			}
-			const result = await send({ type: 'preview', text });
+
+			const result = await send({ type: 'parse', text });
 			$('paste-hint').textContent = result ? result.hint : '';
 			$('paste-hint').classList.toggle('error', !!result && !result.ok);
+			if (!result || !result.ok) return;
+
+			fields.latitude.value = result.latitude;
+			fields.longitude.value = result.longitude;
+			if (result.altitude) fields.altitude.value = result.altitude;
+			dirty = true;
+			placeMarker(Number(result.latitude), Number(result.longitude));
+			if (map) map.setView([Number(result.latitude), Number(result.longitude)], Math.max(map.getZoom(), DEFAULT_ZOOM));
+			setMessage(t('panel.picked'), '');
 		}, 250);
 	});
 
