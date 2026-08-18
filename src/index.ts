@@ -133,6 +133,9 @@ const decodeToText = (data: any): string => {
 	return text;
 };
 
+// What OsmAnd and other map apps listen for.
+export const GPX_MIME = 'application/gpx+xml';
+
 // 20 MB is far beyond any sensible track and keeps a mis-linked video from being pushed
 // through the message channel.
 const MAX_RESOURCE_BYTES = 20 * 1024 * 1024;
@@ -225,6 +228,28 @@ joplin.plugins.register({
 		// of an attached .gpx.
 		await joplin.contentScripts.onMessage('geodata.gpx', async (message: any) => {
 			if (message && message.type === 'strings') return { ok: true, strings: dictionary };
+
+			// The receiving app is chosen by MIME type: OsmAnd registers for ACTION_SEND with
+			// "application/gpx+xml" only, so a track stored under a different type never
+			// reaches it. Joplin's own table maps .gpx correctly, but the type is not always
+			// taken from the file name when attaching.
+			if (message && message.type === 'resourceInfo') {
+				try {
+					const info = await joplin.data.get(['resources', message.id], { fields: ['id', 'title', 'mime'] });
+					return { ok: true, mime: info ? info.mime : '', title: info ? info.title : '' };
+				} catch (error) {
+					return { ok: false, error: `${error.message || error}` };
+				}
+			}
+
+			if (message && message.type === 'setGpxMime') {
+				try {
+					await joplin.data.put(['resources', message.id], null, { mime: GPX_MIME });
+					return { ok: true };
+				} catch (error) {
+					return { ok: false, error: `${error.message || error}` };
+				}
+			}
 			if (!message || message.type !== 'gpxResource') return { ok: false, error: t('message.unknownRequest') };
 
 			try {

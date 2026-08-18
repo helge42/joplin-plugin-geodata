@@ -260,6 +260,42 @@
 		map.fitBounds(window.L.featureGroup(lines).getBounds(), { padding: [12, 12] });
 		renderStats(container.querySelector('.geodata-gpx-stats'), trackStats(segments));
 		addStartPointLink(container, first);
+		void addMimeHint(container, mapElement);
+	};
+
+	// Which app gets offered depends on the resource's MIME type, so if it is not
+	// application/gpx+xml, offer to correct it - one tap, and visible rather than silent.
+	const GPX_MIME = 'application/gpx+xml';
+
+	const addMimeHint = async (container, mapElement) => {
+		const resourceId = mapElement.dataset.gpxResource;
+		const contentScriptId = mapElement.dataset.contentScriptId;
+		const actions = container.querySelector('.geodata-gpx-actions');
+		if (!resourceId || !actions || typeof webviewApi === 'undefined') return;
+		if (actions.querySelector('.geodata-gpx-mime')) return;
+
+		let info;
+		try {
+			info = await webviewApi.postMessage(contentScriptId, { type: 'resourceInfo', id: resourceId });
+		} catch (error) {
+			return;
+		}
+		if (!info || !info.ok || info.mime === GPX_MIME) return;
+
+		const link = document.createElement('a');
+		link.className = 'geodata-gpx-mime';
+		link.href = '#';
+		link.textContent = info.mime ? t('gpx.mimeWrong', { mime: info.mime }) : t('gpx.mimeUnknown');
+		link.onclick = async (event) => {
+			event.preventDefault();
+			const result = await webviewApi.postMessage(contentScriptId, { type: 'setGpxMime', id: resourceId });
+			link.textContent = result && result.ok
+				? t('gpx.mimeFixed')
+				: t('gpx.mimeFailed', { error: result ? result.error : '?' });
+			link.onclick = (inner) => inner.preventDefault();
+			return false;
+		};
+		actions.appendChild(link);
 	};
 
 	// The start of the track as a geo: link - the only thing that can be handed to a maps
