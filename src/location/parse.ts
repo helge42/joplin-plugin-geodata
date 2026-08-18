@@ -87,9 +87,15 @@ const parseMapUrl = (text: string, t: Translate): ParseResult | null => {
 	const at = /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/.exec(text);
 	if (at) return build(t, Number(at[1]), Number(at[2]), null, 'parse.source.googleCentre');
 
-	// Generic query parameters used by Google, Apple, Bing and others.
-	const params = /[?&](?:q|ll|sll|center|daddr|saddr|cp|point)=(-?\d+(?:\.\d+)?)\s*[,~]\s*(-?\d+(?:\.\d+)?)/i.exec(text);
+	// Generic query parameters used by Google, Apple, Bing, OsmAnd and others.
+	const params = /[?&](?:q|ll|sll|center|daddr|saddr|cp|point|pin|marker)=(-?\d+(?:\.\d+)?)\s*[,~]\s*(-?\d+(?:\.\d+)?)/i.exec(text);
 	if (params) return build(t, Number(params[1]), Number(params[2]), null, 'parse.source.mapLink');
+
+	// A bare "#<zoom>/<lat>/<lon>" fragment, as used by OsmAnd's web map and others that
+	// follow OpenStreetMap's layout without the "map=" prefix. Last, so an explicit marker
+	// always wins over the viewport.
+	const bareHash = /#\d+(?:\.\d+)?\/(-?\d+(?:\.\d+)?)\/(-?\d+(?:\.\d+)?)/.exec(text);
+	if (bareHash) return build(t, Number(bareHash[1]), Number(bareHash[2]), null, 'parse.source.osmLink');
 
 	return fail(t('parse.noneInLink'));
 };

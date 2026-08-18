@@ -57,6 +57,7 @@
 		fields.latitude.value = latlng.lat.toFixed(6);
 		fields.longitude.value = latlng.lng.toFixed(6);
 		dirty = true;
+		updateSaveLabel();
 		placeMarker(latlng.lat, latlng.lng);
 		setMessage(t('panel.picked'), '');
 	};
@@ -252,6 +253,7 @@
 			fields.longitude.value = result.longitude;
 			if (result.altitude) fields.altitude.value = result.altitude;
 			dirty = true;
+			updateSaveLabel();
 			placeMarker(Number(result.latitude), Number(result.longitude));
 			if (map) map.setView([Number(result.latitude), Number(result.longitude)], Math.max(map.getZoom(), DEFAULT_ZOOM));
 			setMessage(t('panel.picked'), '');
@@ -305,6 +307,7 @@
 					fields.altitude.value = Math.round(position.coords.altitude);
 				}
 				dirty = true;
+				updateSaveLabel();
 				placeMarker(position.coords.latitude, position.coords.longitude);
 				if (map) map.setView([position.coords.latitude, position.coords.longitude], Math.max(map.getZoom(), DEFAULT_ZOOM));
 				setMessage(t('panel.located', { accuracy: Math.round(position.coords.accuracy) }), '');

@@ -23,6 +23,10 @@ const cases = [
 	['https://www.google.com/maps/@52.5163,13.3777,15z', 52.5163, 13.3777],
 	['https://www.google.com/maps/place/Berlin/@52.5,13.4,15z/data=!3m1!4b1!3d52.5163!4d13.3777', 52.5163, 13.3777],
 	['https://maps.google.com/?q=52.5163,13.3777', 52.5163, 13.3777],
+	// OsmAnd: der Pin ist der gemeinte Ort, das Fragment nur der Ausschnitt.
+	['https://osmand.net/map?pin=47.99022,7.86770#16/47.99022/7.86770', 47.99022, 7.86770],
+	['https://osmand.net/map#16/47.99022/7.86770', 47.99022, 7.86770],
+	['https://osmand.net/map?pin=47.9,7.8#16/48.5/8.5', 47.9, 7.8],
 	['https://maps.apple.com/?ll=52.5163,13.3777&q=Berlin', 52.5163, 13.3777],
 	['Schau mal:\nhttps://www.openstreetmap.org/#map=19/48.8584/2.2945\nwar toll', 48.8584, 2.2945],
 ];
