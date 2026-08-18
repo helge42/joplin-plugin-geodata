@@ -22,7 +22,11 @@
 	let state = null;
 	// While the user is editing we do not let background updates overwrite the fields.
 	let dirty = false;
-	let clearArmed = false;
+
+	const updateSaveLabel = () => {
+		const empty = !fields.latitude.value.trim() && !fields.longitude.value.trim();
+		$('button-save').textContent = empty ? t('panel.saveRemove') : t('panel.save');
+	};
 
 	const setMessage = (text, kind) => {
 		const element = $('message');
@@ -167,8 +171,8 @@
 		fields.altitude.value = next.altitude;
 
 		setMessage(next.message, next.messageKind);
+		updateSaveLabel();
 		dirty = false;
-		disarmClear();
 		updateMap(next);
 		void refreshInsertAvailability();
 	};
@@ -191,17 +195,13 @@
 		return response;
 	};
 
-	const disarmClear = () => {
-		clearArmed = false;
-		$('button-clear').textContent = t('panel.clear');
-		$('button-clear').classList.remove('danger');
-	};
-
 	// --- events -------------------------------------------------------------
 
 	for (const field of Object.values(fields)) {
 		field.addEventListener('input', () => { dirty = true; });
 	}
+	fields.latitude.addEventListener('input', updateSaveLabel);
+	fields.longitude.addEventListener('input', updateSaveLabel);
 	fields.latitude.addEventListener('input', syncMapFromFields);
 	fields.longitude.addEventListener('input', syncMapFromFields);
 
@@ -266,15 +266,16 @@
 		setMessage(t('panel.swapped'), '');
 	});
 
+	// Empties the fields only - the note keeps its coordinates until Save is pressed, which
+	// is why this no longer needs a confirming second tap.
 	$('button-clear').addEventListener('click', () => {
-		if (!clearArmed) {
-			clearArmed = true;
-			$('button-clear').textContent = t('panel.clearConfirm');
-			$('button-clear').classList.add('danger');
-			setTimeout(disarmClear, 4000);
-			return;
-		}
-		void sendAndRender({ type: 'clear' });
+		fields.latitude.value = '';
+		fields.longitude.value = '';
+		fields.altitude.value = '';
+		dirty = true;
+		if (marker) { marker.remove(); marker = null; }
+		updateSaveLabel();
+		setMessage(t('panel.clearedFields'), '');
 	});
 
 	// Confirmed working on Joplin-Android 3.6.21: the plugin webview does reach the device

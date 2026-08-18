@@ -64,12 +64,21 @@ const buildState = async (noteId: string, message = '', messageKind: PanelState[
 
 // Turns the three text fields into coordinates, or explains what is wrong with them.
 const coordinatesFromFields = (message: { latitude: string; longitude: string; altitude: string }) => {
-	const latitude = Number(String(message.latitude ?? '').replace(',', '.').trim());
-	const longitude = Number(String(message.longitude ?? '').replace(',', '.').trim());
+	const rawLatitude = String(message.latitude ?? '').replace(',', '.').trim();
+	const rawLongitude = String(message.longitude ?? '').replace(',', '.').trim();
 	const rawAltitude = String(message.altitude ?? '').replace(',', '.').trim();
 
-	if (!isValidLatitude(latitude)) return { error: t('message.invalidLatitude'), coordinates: null as Coordinates };
-	if (!isValidLongitude(longitude)) return { error: t('message.invalidLongitude'), coordinates: null as Coordinates };
+	// Both fields empty is how the panel expresses "remove the location", which Joplin
+	// stores as 0/0. One empty field is a mistake, not an intention.
+	if (!rawLatitude && !rawLongitude) {
+		return { error: '', coordinates: { latitude: 0, longitude: 0, altitude: 0 }, removing: true };
+	}
+
+	const latitude = Number(rawLatitude);
+	const longitude = Number(rawLongitude);
+
+	if (!rawLatitude || !isValidLatitude(latitude)) return { error: t('message.invalidLatitude'), coordinates: null as Coordinates };
+	if (!rawLongitude || !isValidLongitude(longitude)) return { error: t('message.invalidLongitude'), coordinates: null as Coordinates };
 
 	const altitude = rawAltitude === '' ? 0 : Number(rawAltitude);
 	if (!Number.isFinite(altitude)) return { error: t('message.invalidAltitude'), coordinates: null as Coordinates };
@@ -259,11 +268,11 @@ joplin.plugins.register({
 					const noteId = await requireNote(message.noteId);
 					if (!noteId) return emptyState(t('message.noNote'), 'error');
 
-					const { error, coordinates } = coordinatesFromFields(message);
+					const { error, coordinates, removing } = coordinatesFromFields(message);
 					if (error) return await buildState(noteId, error, 'error');
 
 					await writeCoordinates(noteId, coordinates);
-					return await buildState(noteId, t('message.saved'), 'ok');
+					return await buildState(noteId, removing ? t('message.cleared') : t('message.saved'), 'ok');
 				}
 
 				// Parsing only fills the panel; writing to the note stays with the Save
@@ -280,14 +289,6 @@ joplin.plugins.register({
 						altitude: result.coordinates.altitude ? formatDecimal(result.coordinates.altitude) : '',
 						hint: t('message.applied', { source: result.source }),
 					};
-				}
-
-				case 'clear': {
-					const noteId = await requireNote(message.noteId);
-					if (!noteId) return emptyState(t('message.noNote'), 'error');
-
-					await writeCoordinates(noteId, { latitude: 0, longitude: 0, altitude: 0 });
-					return await buildState(noteId, t('message.cleared'), 'ok');
 				}
 
 				case 'editorAvailable':
