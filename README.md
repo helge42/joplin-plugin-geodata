@@ -132,10 +132,11 @@ Publishing a new version: raise `version` in `src/manifest.json`, commit, then
 git tag v0.9.3 && git push --tags
 ```
 
-Versions carry a fourth segment for small follow-ups (`0.9.2.1`). Joplin does not validate
-the format, and its update check uses `compare-versions`, whose pattern explicitly allows a
-fourth number — so such versions still compare correctly. Note that strict semver tooling
-elsewhere (npm, should the plugin ever be published there) only accepts three segments.
+Releases count up in the fourth segment and stay in the `0.9.4.x` line, so that the road to
+a `1.0` stays long. Joplin does not validate the format, and its update check uses
+`compare-versions`, whose pattern explicitly allows a fourth number — so such versions still
+compare correctly. Note that strict semver tooling elsewhere (npm, should the plugin ever be
+published there) only accepts three segments.
 
 The workflow in `.github/workflows/release.yml` builds, tests and creates the release with
 the `.jpl` attached. It refuses to run if the tag does not match the version in the
