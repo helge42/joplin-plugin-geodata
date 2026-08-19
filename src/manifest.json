@@ -4,7 +4,7 @@
 	"app_min_version": "3.6",
 	"app_min_version_mobile": "3.6",
 	"platforms": ["desktop", "mobile"],
-	"version": "0.9.5",
+	"version": "0.9.4.2",
 	"name": "Geodata",
 	"description": "View and edit a note's geolocation - built for mobile use and travel journalling.",
 	"author": "helge42",
