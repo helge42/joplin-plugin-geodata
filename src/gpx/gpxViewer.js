@@ -239,10 +239,11 @@
 		// fadeAnimation off: the tiles are faded in via opacity, and a webview that stumbles
 		// over that transition leaves the map black. Nothing is lost but the fade.
 		const map = window.L.map(mapElement, { attributionControl: true, fadeAnimation: false });
-		window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+		const tiles = window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
 			maxZoom: 19,
 			attribution: '&copy; OpenStreetMap',
 		}).addTo(map);
+		liveMaps.push({ element: mapElement, map, tiles });
 
 		const lines = segments.map(segment => {
 			return window.L.polyline(downsample(segment).map(point => [point.lat, point.lon]), {
@@ -260,7 +261,71 @@
 		map.fitBounds(window.L.featureGroup(lines).getBounds(), { padding: [12, 12] });
 		renderStats(container.querySelector('.geodata-gpx-stats'), trackStats(segments));
 		addStartPointLink(container, first);
+		addReloadLink(container, mapElement);
 		void addMimeHint(container, mapElement);
+	};
+
+	// --- keeping the tiles alive --------------------------------------------
+	//
+	// Every map currently on screen. Coming back from another app - opening the track in
+	// OsmAnd, for instance - Android hands the webview back with the tiles gone: the frame and
+	// the line are there, the tile images are blank, and until now only restarting Joplin
+	// brought them back. Re-measuring and re-requesting fixes it, at the cost of one round of
+	// tile requests that the browser cache usually answers.
+	const liveMaps = [];
+
+	const forgetDetachedMaps = () => {
+		for (let i = liveMaps.length - 1; i >= 0; i--) {
+			if (document.contains(liveMaps[i].element)) continue;
+			// The viewer rebuilds the note body and throws the old nodes away; without remove()
+			// each rebuild would leave a live map behind, listening on window.
+			liveMaps[i].map.remove();
+			// remove() also frees the element for a fresh map, so let it be drawn again should
+			// the viewer put this very node back.
+			liveMaps[i].element.dataset.geodataGpxDone = '';
+			liveMaps.splice(i, 1);
+		}
+	};
+
+	const refreshMaps = () => {
+		forgetDetachedMaps();
+		for (const entry of liveMaps) {
+			entry.map.invalidateSize();
+			entry.tiles.redraw();
+		}
+	};
+
+	// Only after the app really was away: on the desktop the viewer gains and loses focus all
+	// the time, and re-requesting tiles for that would be rude to the tile servers.
+	let wasHidden = false;
+	document.addEventListener('visibilitychange', () => {
+		if (document.hidden) { wasHidden = true; return; }
+		refreshMaps();
+	});
+	window.addEventListener('pageshow', (event) => {
+		if (event.persisted || wasHidden) refreshMaps();
+	});
+
+	// The manual way back, for when the webview comes home without announcing it - and for a
+	// map that stayed empty because the connection was down while it was drawn.
+	const addReloadLink = (container, mapElement) => {
+		const actions = container.querySelector('.geodata-gpx-actions');
+		if (!actions || actions.querySelector('.geodata-gpx-reload')) return;
+
+		const link = document.createElement('a');
+		link.className = 'geodata-gpx-reload';
+		link.href = '#';
+		link.textContent = t('gpx.reloadMap');
+		link.onclick = (event) => {
+			event.preventDefault();
+			const entry = liveMaps.find(item => item.element === mapElement);
+			if (entry) {
+				entry.map.invalidateSize();
+				entry.tiles.redraw();
+			}
+			return false;
+		};
+		actions.appendChild(link);
 	};
 
 	// Which app gets offered depends on the resource's MIME type, so if it is not

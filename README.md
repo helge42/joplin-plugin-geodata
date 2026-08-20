@@ -112,6 +112,12 @@ Requires Joplin 3.6 or newer, on desktop and mobile. On iOS, Joplin only allows
 recommended plugins from its repository, so this one cannot be installed there; the web
 app at [app.joplincloud.com](https://app.joplincloud.com) does accept `.jpl` files.
 
+In the **web app**, "Get current location" cannot work: Joplin puts plugin panels in a
+sandboxed frame that is not granted the browser's location permission, so the request is
+refused without a prompt — and no permission appears in the site settings that you could
+grant by hand. The panel says so rather than pretending to search. Everything else works,
+including paste & detect and the map.
+
 **Build it yourself:**
 
 ```bash

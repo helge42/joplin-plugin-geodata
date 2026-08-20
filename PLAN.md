@@ -333,3 +333,55 @@ The plugin API has no "editor is open" state. But `CommandService.execute` throw
 `Cannot execute a command without a runtime` when no editor is mounted, so an attempt with
 the read-only `selectedText` command is a harmless probe — which is how "insert into note"
 in the panel greys itself out while a note is merely being viewed.
+
+### The web app cannot give the panel the location
+
+Joplin Web is the mobile app compiled for the browser
+(`packages/app-mobile/components/ExtendedWebView/index.web.tsx`), and it builds every plugin
+webview through `makeSandboxedIframe`:
+
+```
+sandbox: allow-scripts allow-modals allow-popups allow-popups-to-escape-sandbox
+allow:   clipboard-write; clipboard-read; fullscreen 'self'; autoplay 'self';
+         local-fonts 'self'; encrypted-media 'self'
+```
+
+Two things follow, and either one alone is enough to stop `getCurrentPosition()`:
+
+- `geolocation` is missing from the `allow` list, and the permissions policy defaults to
+  `self` — an embedded frame has to be granted it explicitly.
+- There is no `allow-same-origin`, so the frame has an opaque origin, and Chromium refuses
+  powerful features there because a permission cannot be tied to an origin that does not
+  exist.
+
+The browser therefore denies the request without asking, and the site never lists a location
+permission the user could grant by hand. Nothing in the plugin can change that; the panel now
+asks `document.permissionsPolicy.allowsFeature('geolocation')` first and says so instead of
+appearing to do nothing. On Android (`react-native-webview`) and on the desktop (Electron)
+the panel does reach the GPS — this is a web-app-only restriction, and a candidate for an
+upstream report.
+
+The page's own CSP is not the problem, by the way: `app.joplincloud.com` allows
+`img-src http://* https://*`, which is what the map tiles need.
+
+### A map has to survive a container that has no size yet
+
+On mobile — and therefore in the web app — the panel is shown inside a dialog
+(`PluginPanelViewer` → `DismissibleDialog` → `Modal`), which is built before it becomes
+visible; on web that is an HTML `<dialog>`, and a `<dialog>` that is not open is
+`display: none`, so nothing inside it has a layout box at all.
+Leaflet measures its container with `clientWidth`/`clientHeight` when the map is created; in
+a container that has no layout box yet, that is 0×0, and the map then loads not a single tile
+and never measures again. What is left is an empty box, which in the dark theme reads as
+black. A single `setTimeout(invalidateSize, 0)` does not help — the box may appear much
+later. A `ResizeObserver` does, because it fires exactly when the element gets a box, and the
+view we wanted is re-applied at that moment.
+
+### Tiles can go missing while the app is in the background
+
+Coming back to Joplin after opening a track in another app, the maps in the note viewer stay
+empty until Joplin is restarted (seen on a slow Samsung tablet). The maps themselves are
+alive — it is the tile images that are gone, presumably reclaimed while the app was in the
+background. Both the panel and the viewer now re-measure and call `redraw()` on the tile
+layer when the document becomes visible again, and every GPX block has a "Reload map" link
+for the case where the webview comes back without announcing it.

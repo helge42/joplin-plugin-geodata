@@ -38,10 +38,14 @@
 
 	const DEFAULT_ZOOM = 15;
 	let map = null;
+	let tiles = null;
 	let marker = null;
 	let tileErrors = 0;
 	let mapVisible = true;
 	let mapNoteId = '';
+	// The last view we asked for. Leaflet cannot honour setView() while the container has no
+	// layout box, so it is kept to be re-applied once the box appears.
+	let wantedView = null;
 
 	const setMapHint = (text) => { $('map-hint').textContent = text || ''; };
 
@@ -74,6 +78,13 @@
 		}
 	}
 
+	const hasBox = () => $('map').clientWidth > 0 && $('map').clientHeight > 0;
+
+	const setMapView = (latitude, longitude, zoom) => {
+		wantedView = { center: [latitude, longitude], zoom };
+		if (map) map.setView(wantedView.center, zoom);
+	};
+
 	const ensureMap = () => {
 		if (map) return map;
 		if (!window.L) {
@@ -81,10 +92,13 @@
 			return null;
 		}
 
-		map = window.L.map('map', { attributionControl: true });
-		map.setView([20, 0], 1);
+		// fadeAnimation off for the same reason as in the note viewer: tiles are faded in via
+		// an opacity transition, and a webview that does not finish that transition leaves the
+		// map dark.
+		map = window.L.map('map', { attributionControl: true, fadeAnimation: false });
+		setMapView(20, 0, 1);
 
-		const tiles = window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+		tiles = window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
 			maxZoom: 19,
 			attribution: '&copy; OpenStreetMap',
 		});
@@ -98,8 +112,46 @@
 		tiles.addTo(map);
 
 		map.on('click', (event) => setFromMap(event.latlng));
+		watchMapBox();
 		return map;
 	};
+
+	// On mobile - and in the web app, which is the mobile app in a browser - the panel lives
+	// in a dialog that is built before it is shown. Leaflet then measures a container of zero
+	// size, loads not a single tile and leaves an empty box that reads as black in the dark
+	// theme. A ResizeObserver fires the moment the container gets a layout box, whenever that
+	// is, which a one-off timeout cannot.
+	const watchMapBox = () => {
+		if (typeof ResizeObserver === 'undefined') return;
+
+		let hadBox = hasBox();
+		const observer = new ResizeObserver(() => {
+			if (!hasBox()) { hadBox = false; return; }
+			map.invalidateSize();
+			// Only when the box first appears: afterwards the user's own panning must stand.
+			if (!hadBox && wantedView) map.setView(wantedView.center, wantedView.zoom, { animate: false });
+			hadBox = true;
+		});
+		observer.observe($('map'));
+	};
+
+	// Coming back from another app, Android hands the webview back with the tiles gone: the
+	// map frame is there, the images are blank, and until now only restarting Joplin brought
+	// them back. Re-measuring and re-requesting costs one round of mostly cached tiles.
+	const refreshTiles = () => {
+		if (!map) return;
+		map.invalidateSize();
+		if (tiles) tiles.redraw();
+	};
+
+	let wasHidden = false;
+	document.addEventListener('visibilitychange', () => {
+		if (document.hidden) { wasHidden = true; return; }
+		refreshTiles();
+	});
+	window.addEventListener('pageshow', (event) => {
+		if (event.persisted || wasHidden) refreshTiles();
+	});
 
 	const updateMap = (next) => {
 		if (!mapVisible) return;
@@ -121,7 +173,7 @@
 		// Only jump the view when a different note is shown - otherwise the user's own
 		// panning and zooming would be undone on every save.
 		if (mapNoteId !== next.noteId) {
-			map.setView([latitude, longitude], DEFAULT_ZOOM);
+			setMapView(latitude, longitude, DEFAULT_ZOOM);
 			mapNoteId = next.noteId;
 		}
 	};
@@ -131,7 +183,7 @@
 		$('map').style.display = visible ? '' : 'none';
 		$('button-map-toggle').textContent = visible ? t('panel.hideMap') : t('panel.showMap');
 		if (!visible) setMapHint('');
-		if (visible && state) updateMap(state);
+		if (visible && state) { updateMap(state); refreshTiles(); }
 		if (persist) void webviewApi.postMessage({ type: 'setShowMap', value: visible });
 	};
 
@@ -255,7 +307,7 @@
 			dirty = true;
 			updateSaveLabel();
 			placeMarker(Number(result.latitude), Number(result.longitude));
-			if (map) map.setView([Number(result.latitude), Number(result.longitude)], Math.max(map.getZoom(), DEFAULT_ZOOM));
+			if (map) setMapView(Number(result.latitude), Number(result.longitude), Math.max(map.getZoom(), DEFAULT_ZOOM));
 			setMessage(t('panel.picked'), '');
 		}, 250);
 	});
@@ -283,18 +335,45 @@
 	// Confirmed working on Joplin-Android 3.6.21: the plugin webview does reach the device
 	// GPS. The paste field stays as the fallback for when there is no fix (indoors, tunnel)
 	// or when the position belongs to a place the user is not standing at right now.
+	// In the web app the panel is a sandboxed iframe that is not granted the geolocation
+	// permission, so the browser refuses the request without ever asking the user - and the
+	// site never even shows a location entry in its permissions. Asking the permissions
+	// policy first turns a silent nothing into an explanation.
+	const geolocationAllowed = () => {
+		const policy = document.permissionsPolicy || document.featurePolicy;
+		if (!policy || typeof policy.allowsFeature !== 'function') return true;
+		try {
+			return policy.allowsFeature('geolocation');
+		} catch (error) {
+			return true;
+		}
+	};
+
 	$('button-locate').addEventListener('click', () => {
 		const button = $('button-locate');
 		if (!navigator.geolocation) {
 			setMessage(t('panel.locateUnavailable'), 'error');
 			return;
 		}
+		if (!geolocationAllowed()) {
+			setMessage(t('panel.locateBlocked'), 'error');
+			return;
+		}
 
 		const label = button.textContent;
-		const restore = () => { button.disabled = false; button.textContent = label; };
+		let done = false;
+		const restore = () => { done = true; button.disabled = false; button.textContent = label; };
 		button.disabled = true;
 		button.textContent = t('panel.locating');
 		setMessage('', '');
+
+		// Neither callback is guaranteed to fire - a webview that blocks the request can stay
+		// silent, and then the button would be stuck for good.
+		setTimeout(() => {
+			if (done) return;
+			restore();
+			setMessage(t('panel.locateFailed', { reason: 'no answer' }), 'error');
+		}, 25000);
 
 		navigator.geolocation.getCurrentPosition(
 			(position) => {
@@ -309,7 +388,7 @@
 				dirty = true;
 				updateSaveLabel();
 				placeMarker(position.coords.latitude, position.coords.longitude);
-				if (map) map.setView([position.coords.latitude, position.coords.longitude], Math.max(map.getZoom(), DEFAULT_ZOOM));
+				if (map) setMapView(position.coords.latitude, position.coords.longitude, Math.max(map.getZoom(), DEFAULT_ZOOM));
 				setMessage(t('panel.located', { accuracy: Math.round(position.coords.accuracy) }), '');
 			},
 			(error) => {
@@ -361,6 +440,8 @@
 			`joplin.geolocation: ${info.geolocationApi ? 'true' : 'false'}`,
 			`control probe (invented API): ${info.controlProbe ? 'true -> both values meaningless' : 'false -> test is meaningful'}`,
 			`navigator.geolocation present: ${!!navigator.geolocation}`,
+			`geolocation allowed by permissions policy: ${geolocationAllowed()}`,
+			`frame origin: ${window.origin || '(none)'}`,
 			`location request: ${await probeGeolocation()}`,
 			`isSecureContext: ${window.isSecureContext}`,
 			`OSM tile: ${await probeImage('https://tile.openstreetmap.org/0/0/0.png')}`,
