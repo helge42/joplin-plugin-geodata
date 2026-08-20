@@ -374,13 +374,24 @@
 
 	// The start of the track as a geo: link - the only thing that can be handed to a maps
 	// app when the GPX sits inline in the note and there is no file to pass on.
+	// Apple platforms have no handler for geo: URIs; there the way into the maps app is
+	// maps.apple.com. Tapping a geo: link on an iPhone simply does nothing.
+	const applePlatform = /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent);
+
+	const mapsAppUrl = (latitude, longitude) => {
+		const point = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
+		return applePlatform
+			? `https://maps.apple.com/?ll=${encodeURIComponent(point)}&q=${encodeURIComponent(point)}`
+			: `geo:${point}`;
+	};
+
 	const addStartPointLink = (container, start) => {
 		const actions = container.querySelector('.geodata-gpx-actions');
 		if (!actions || actions.querySelector('.geodata-gpx-start')) return;
 
 		const link = document.createElement('a');
 		link.className = 'geodata-gpx-start';
-		link.href = `geo:${start.lat.toFixed(6)},${start.lon.toFixed(6)}`;
+		link.href = mapsAppUrl(start.lat, start.lon);
 		link.textContent = t('gpx.startPoint');
 		actions.appendChild(link);
 	};

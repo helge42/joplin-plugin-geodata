@@ -49,6 +49,13 @@ place forever.
   directly. What gets inserted is whatever the panel currently shows, including a point you
   just picked on the map; the note's own coordinates are left untouched.
 
+  **If the notes are read on an iPhone or a Mac, use `{osm}` instead of `{geo}`.** Apple
+  platforms have no handler for `geo:` URIs — tapping such a link there does nothing at all.
+  What lands in the note is stored text and travels to every device, so it cannot adapt
+  itself; an OpenStreetMap link opens everywhere, and map apps like OsmAnd or Organic Maps
+  offer to take it over. The links the panel draws for itself do adapt: on Apple platforms
+  they point at `maps.apple.com`.
+
   In the **rich text editor** only the text is inserted, without the link: that editor
   takes inserted text literally and escapes the brackets when it writes Markdown back, so
   the note would end up holding `\[52.5, 13.3\](geo:…)`.

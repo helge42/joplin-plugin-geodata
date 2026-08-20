@@ -8,6 +8,13 @@ import { formatDecimal } from './location/format';
 // Nominatim's usage policy asks for at most one request per second and no bulk querying.
 // A single manual insert per note is well within that; the cache avoids repeats.
 
+export interface GeocodeResult {
+	place: string;
+	// Empty when all went well. Kept so the panel can say why {place} stayed empty instead
+	// of quietly inserting nothing - on iOS the request behaves differently again.
+	error: string;
+}
+
 const cache = new Map<string, string>();
 const CACHE_LIMIT = 200;
 
@@ -30,25 +37,37 @@ const shortenAddress = (address: Record<string, string>, fallback: string) => {
 	return parts.length ? parts.join(', ') : fallback;
 };
 
-export const reverseGeocode = async (coordinates: Coordinates): Promise<string> => {
+export const reverseGeocode = async (coordinates: Coordinates): Promise<GeocodeResult> => {
 	const key = cacheKey(coordinates);
-	if (cache.has(key)) return cache.get(key);
+	if (cache.has(key)) return { place: cache.get(key), error: '' };
 
 	const url = 'https://nominatim.openstreetmap.org/reverse'
 		+ `?format=jsonv2&zoom=14&lat=${encodeURIComponent(coordinates.latitude)}&lon=${encodeURIComponent(coordinates.longitude)}`;
 
 	try {
 		const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
-		if (!response.ok) return '';
+		if (!response.ok) return { place: '', error: `HTTP ${response.status}` };
 
 		const body = await response.json();
 		const place = shortenAddress(body.address, body.display_name || '');
 
 		if (cache.size >= CACHE_LIMIT) cache.clear();
 		cache.set(key, place);
-		return place;
+		return { place, error: '' };
 	} catch (error) {
 		console.info('Geodata: Reverse-Geocoding fehlgeschlagen:', error);
-		return '';
+		return { place: '', error: error && error.message ? error.message : String(error) };
+	}
+};
+
+// The plugin process is not the panel: on the web they are separate frames with separate
+// permissions, so "the panel can reach Nominatim" says nothing about the process that
+// actually does the geocoding. Hence a probe from here.
+export const probeNominatim = async (): Promise<string> => {
+	try {
+		const response = await fetch('https://nominatim.openstreetmap.org/status.php?format=json');
+		return `HTTP ${response.status}`;
+	} catch (error) {
+		return `blocked (${error && error.message ? error.message : String(error)})`;
 	}
 };

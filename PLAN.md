@@ -412,3 +412,22 @@ alive — it is the tile images that are gone, presumably reclaimed while the ap
 background. Both the panel and the viewer now re-measure and call `redraw()` on the tile
 layer when the document becomes visible again, and every GPX block has a "Reload map" link
 for the case where the webview comes back without announcing it.
+
+### `geo:` is an Android idea
+
+iOS and macOS register no handler for `geo:` URIs - Apple uses `maps://` and
+`https://maps.apple.com/?ll=…`. A `geo:` link on an iPhone does not fail visibly; nothing
+happens at all, which is worse. The panel's own links and the GPX start point now check the
+user agent and switch to `maps.apple.com` on Apple platforms.
+
+The `{geo}` placeholder cannot do that: what a template writes goes into the note as stored
+text and is read on whatever device opens the note next. For notes shared across platforms,
+`{osm}` is the honest choice - an OpenStreetMap link opens in any browser, and OsmAnd and
+Organic Maps register for those URLs.
+
+### The panel and the plugin process are not the same frame
+
+On the web they are two sandboxed iframes with two sets of permissions, so a network test in
+the panel says nothing about the process that does the geocoding. The diagnostics now probe
+Nominatim from both sides, and a `{place}` that stays empty says why in the panel rather
+than being silently dropped from the inserted text.

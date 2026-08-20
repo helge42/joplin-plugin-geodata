@@ -5,7 +5,7 @@ import { parseLocation } from './location/parse';
 import { Coordinates, isEmpty, isValidLatitude, isValidLongitude } from './location/types';
 import { formatDecimal, formatPairDms, geoUri, osmUrl } from './location/format';
 import { defaultTemplate, placeholders, renderTemplate, stripMarkdownLinks, usesPlaceholder } from './location/template';
-import { reverseGeocode } from './geocode';
+import { probeNominatim, reverseGeocode } from './geocode';
 import { readNoteGeodata, readSelectedNoteGeodata, writeCoordinates } from './notes';
 import { createTranslate, Dictionary, dictionaryFor, englishDictionary, Translate } from './i18n';
 
@@ -163,8 +163,9 @@ const editorAvailable = async () => {
 // alike - it is what Joplin's own "Insert time" uses.
 const insertLocationText = async (coordinates: Coordinates) => {
 	const template = (await joplin.settings.value('insertTemplate')) || defaultTemplate;
-	const place = usesPlaceholder(template, 'place') ? await reverseGeocode(coordinates) : '';
-	const rendered = renderTemplate(template, { coordinates, place, now: new Date() });
+	const wantsPlace = usesPlaceholder(template, 'place');
+	const geocoded = wantsPlace ? await reverseGeocode(coordinates) : { place: '', error: '' };
+	const rendered = renderTemplate(template, { coordinates, place: geocoded.place, now: new Date() });
 
 	const [codeView] = await joplin.settings.globalValues(['editor.codeView']);
 	const richText = codeView === false;
@@ -178,7 +179,11 @@ const insertLocationText = async (coordinates: Coordinates) => {
 		throw new Error(t('message.editorRefused'));
 	}
 
-	return { text, richText };
+	// Nothing here fails hard: an insert without the place name is still worth having. But
+	// the panel should be able to say that the name is missing, rather than leaving the user
+	// to wonder why the template came out short.
+	const placeMissing = wantsPlace && !geocoded.place;
+	return { text, richText, placeMissing, placeError: geocoded.error };
 };
 
 const requireNote = async (noteId: string) => {
@@ -331,9 +336,10 @@ joplin.plugins.register({
 					}
 
 					// Inserting text must not touch the note's own coordinates.
-					const { text, richText } = await insertLocationText(coordinates);
+					const { text, richText, placeMissing, placeError } = await insertLocationText(coordinates);
 					const note = richText ? t('message.insertedRichText') : '';
-					return await buildState(noteId, `${t('message.inserted', { text })}${note}`, 'ok');
+					const missing = placeMissing ? t('message.placeMissing', { reason: placeError || '-' }) : '';
+					return await buildState(noteId, `${t('message.inserted', { text })}${note}${missing}`, 'ok');
 				}
 
 				case 'getSettings':
@@ -358,6 +364,8 @@ joplin.plugins.register({
 						platform: version.platform,
 						geolocationApi,
 						controlProbe,
+						// From the plugin process, which is a different frame than the panel.
+						nominatim: await probeNominatim(),
 					};
 				}
 

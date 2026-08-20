@@ -28,6 +28,19 @@
 		$('button-save').textContent = empty ? t('panel.saveRemove') : t('panel.save');
 	};
 
+	// Apple platforms have no handler for geo: URIs - iOS and macOS use maps:// and
+	// maps.apple.com instead, so a geo: link there does nothing at all when tapped. This only
+	// concerns the links the panel draws itself; what a template writes into a note is stored
+	// text and has to be readable on the other person's device too (see the README).
+	const applePlatform = /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent);
+
+	const mapsAppUrl = (state) => {
+		if (!state.hasCoordinates) return '#';
+		if (!applePlatform) return state.geoUri;
+		const point = `${state.latitude},${state.longitude}`;
+		return `https://maps.apple.com/?ll=${encodeURIComponent(point)}&q=${encodeURIComponent(point)}`;
+	};
+
 	const setMessage = (text, kind) => {
 		const element = $('message');
 		element.textContent = text || '';
@@ -225,7 +238,7 @@
 		$('readout').hidden = !next.hasCoordinates;
 		$('readout-dms').textContent = next.dms || '';
 		$('link-osm').href = next.osmUrl || '#';
-		$('link-geo').href = next.geoUri || '#';
+		$('link-geo').href = mapsAppUrl(next);
 
 		fields.latitude.value = next.latitude;
 		fields.longitude.value = next.longitude;
@@ -446,6 +459,9 @@
 		const info = await webviewApi.postMessage({ type: 'diagnostics' });
 		const lines = [
 			`Joplin: ${info.version} (${info.platform})`,
+			// The geocoding runs in the plugin process, not here - on the web those are two
+			// frames with two sets of permissions.
+			`fetch (Nominatim, plugin process): ${info.nominatim}`,
 			`joplin.geolocation: ${info.geolocationApi ? 'true' : 'false'}`,
 			`control probe (invented API): ${info.controlProbe ? 'true -> both values meaningless' : 'false -> test is meaningful'}`,
 			`navigator.geolocation present: ${!!navigator.geolocation}`,
