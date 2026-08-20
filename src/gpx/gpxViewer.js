@@ -14,6 +14,8 @@
 	const MAX_POINTS = 2000;
 	// Ignore wobble in the barometric/GPS altitude when summing the climb.
 	const ASCENT_THRESHOLD = 3;
+	// For a lone waypoint: close enough to see the street, far enough to see where it leads.
+	const SINGLE_POINT_ZOOM = 15;
 
 	const toRadians = (degrees) => (degrees * Math.PI) / 180;
 
@@ -143,6 +145,15 @@
 		element.textContent = parts.join(' · ');
 	};
 
+	// A single position is not a track: distance, duration and "1 point" would all be noise.
+	// What is worth knowing about one point is how high it is and when it was recorded.
+	const renderPointStats = (element, point) => {
+		const parts = [];
+		if (point.ele !== null) parts.push(t('gpx.altitude', { metres: Math.round(point.ele) }));
+		if (point.time !== null) parts.push(new Date(point.time).toLocaleString());
+		element.textContent = parts.join(' · ');
+	};
+
 	const showError = (container, message) => {
 		const map = container.querySelector('.geodata-gpx-map');
 		map.classList.add('geodata-gpx-error');
@@ -249,23 +260,37 @@
 			crossOrigin: 'anonymous',
 		}).addTo(map);
 
-		const lines = segments.map(segment => {
-			return window.L.polyline(downsample(segment).map(point => [point.lat, point.lon]), {
-				color: '#2d5be5',
-				weight: 4,
-			}).addTo(map);
-		});
-
 		const first = segments[0][0];
-		const lastSegment = segments[segments.length - 1];
-		const last = lastSegment[lastSegment.length - 1];
-		window.L.circleMarker([first.lat, first.lon], { radius: 6, color: '#2a7d2e', fillOpacity: 1 }).addTo(map);
-		window.L.circleMarker([last.lat, last.lon], { radius: 6, color: '#c04949', fillOpacity: 1 }).addTo(map);
+		const single = segments.length === 1 && segments[0].length === 1;
 
-		const bounds = window.L.featureGroup(lines).getBounds();
-		map.fitBounds(bounds, { padding: [12, 12] });
-		liveMaps.push({ element: mapElement, map, tiles, bounds });
-		renderStats(container.querySelector('.geodata-gpx-stats'), trackStats(segments));
+		// What the panel's "insert as map" writes: a single waypoint. Drawn as a pin and
+		// framed at a zoom where the surroundings are recognisable - fitBounds on a
+		// point-sized rectangle would go to Leaflet's maximum and show four roof tiles.
+		let restore;
+		if (single) {
+			window.L.circleMarker([first.lat, first.lon], { radius: 7, color: '#2d5be5', fillOpacity: 1 }).addTo(map);
+			restore = () => map.setView([first.lat, first.lon], SINGLE_POINT_ZOOM);
+			renderPointStats(container.querySelector('.geodata-gpx-stats'), first);
+		} else {
+			const lines = segments.map(segment => {
+				return window.L.polyline(downsample(segment).map(point => [point.lat, point.lon]), {
+					color: '#2d5be5',
+					weight: 4,
+				}).addTo(map);
+			});
+
+			const lastSegment = segments[segments.length - 1];
+			const last = lastSegment[lastSegment.length - 1];
+			window.L.circleMarker([first.lat, first.lon], { radius: 6, color: '#2a7d2e', fillOpacity: 1 }).addTo(map);
+			window.L.circleMarker([last.lat, last.lon], { radius: 6, color: '#c04949', fillOpacity: 1 }).addTo(map);
+
+			const bounds = window.L.featureGroup(lines).getBounds();
+			restore = () => map.fitBounds(bounds, { padding: [12, 12] });
+			renderStats(container.querySelector('.geodata-gpx-stats'), trackStats(segments));
+		}
+
+		restore();
+		liveMaps.push({ element: mapElement, map, tiles, restore });
 		addStartPointLink(container, first);
 		addReloadLink(container, mapElement);
 		void addMimeHint(container, mapElement);
@@ -329,7 +354,7 @@
 				entry.map.invalidateSize();
 				// Back to the whole track: after panning around, finding the way back by hand
 				// is fiddly on a phone, and this is the button one reaches for anyway.
-				entry.map.fitBounds(entry.bounds, { padding: [12, 12] });
+				entry.restore();
 				entry.tiles.redraw();
 			}
 			return false;

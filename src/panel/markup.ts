@@ -16,11 +16,12 @@ export const panelHtml = (t: Translate, dictionary: Dictionary) => {
 	<div class="status" id="status">–</div>
 
 	<div class="readout" id="readout" hidden>
-		<div class="readout-line" id="readout-dms"></div>
+		<div class="readout-line copyable" id="readout-dms"></div>
 		<div class="links">
 			<a id="link-osm" href="#" target="_blank" rel="noopener">${t('panel.openStreetMap')}</a>
 			<a id="link-geo" href="#">${t('panel.mapsApp')}</a>
 		</div>
+		<div class="hint" id="copy-hint">${t('panel.copyHint')}</div>
 	</div>
 
 	<div class="map-block">
@@ -52,6 +53,7 @@ export const panelHtml = (t: Translate, dictionary: Dictionary) => {
 
 	<div class="buttons">
 		<button id="button-insert" type="button">${t('panel.insertIntoNote')}</button>
+		<button id="button-insert-map" type="button">${t('panel.insertMap')}</button>
 	</div>
 	<div class="hint" id="insert-hint"></div>
 

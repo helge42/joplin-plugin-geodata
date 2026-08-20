@@ -56,6 +56,14 @@ place forever.
   offer to take it over. The links the panel draws for itself do adapt: on Apple platforms
   they point at `maps.apple.com`.
 
+- **Insert the location as a map**: the same position as a `gpx` block with one waypoint,
+  which the note viewer draws as a small map with a pin, with altitude and time below it.
+  Markdown editor only — the rich text editor would escape the fence.
+- **Copy the coordinates**: long-press the coordinates at the top of the panel and they go
+  to the clipboard as `52.5163, 13.3777`; long-press the line below for degrees, minutes and
+  seconds. A long press rather than a tap, because the clipboard belongs to whatever you are
+  writing and should not be overwritten in passing.
+
   In the **rich text editor** only the text is inserted, without the link: that editor
   takes inserted text literally and escapes the brackets when it writes Markdown back, so
   the note would end up holding `\[52.5, 13.3\](geo:…)`.

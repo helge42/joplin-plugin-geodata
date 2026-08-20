@@ -6,7 +6,7 @@
     "prepare": "npm run dist",
     "updateVersion": "webpack --env joplin-plugin-config=updateVersion",
     "update": "npm install -g generator-joplin && yo joplin --node-package-manager npm --update --force",
-    "test": "tsc src/location/parse.ts src/location/types.ts src/location/format.ts src/location/template.ts src/gpx/contentScript.ts src/i18n/index.ts --rootDir src --outDir .test-build --module commonjs --target es2019 --skipLibCheck && node test/parse.js && node test/template.js && node test/track.js && node test/contentScript.js",
+    "test": "tsc src/location/parse.ts src/location/types.ts src/location/format.ts src/location/template.ts src/location/gpxBlock.ts src/gpx/contentScript.ts src/i18n/index.ts --rootDir src --outDir .test-build --module commonjs --target es2019 --skipLibCheck && node test/parse.js && node test/template.js && node test/gpxBlock.js && node test/track.js && node test/contentScript.js",
     "vendor": "node tools/copy-vendor.js"
   },
   "license": "MIT",

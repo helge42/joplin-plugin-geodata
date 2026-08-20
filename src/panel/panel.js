@@ -41,6 +41,66 @@
 		return `https://maps.apple.com/?ll=${encodeURIComponent(point)}&q=${encodeURIComponent(point)}`;
 	};
 
+	// navigator.clipboard is not available everywhere the panel runs - old Android webviews
+	// and any frame the browser does not consider trusted fall back to the old selection
+	// trick, which still works in all of them.
+	const copyText = async (text) => {
+		if (navigator.clipboard && navigator.clipboard.writeText) {
+			try {
+				await navigator.clipboard.writeText(text);
+				return '';
+			} catch (error) {
+				// Fall through: a rejected permission is not the end of it.
+			}
+		}
+
+		const helper = document.createElement('textarea');
+		helper.value = text;
+		helper.setAttribute('readonly', '');
+		helper.style.position = 'fixed';
+		helper.style.opacity = '0';
+		document.body.appendChild(helper);
+		try {
+			helper.select();
+			helper.setSelectionRange(0, text.length);
+			if (!document.execCommand('copy')) return 'execCommand';
+			return '';
+		} catch (error) {
+			return error.message || String(error);
+		} finally {
+			helper.remove();
+		}
+	};
+
+	// A long press rather than a tap: the clipboard is shared with whatever the user is
+	// writing, and overwriting it by brushing past a line would be worse than not having the
+	// feature. 500 ms is what Android itself uses for a long press.
+	const LONG_PRESS = 500;
+
+	const onLongPress = (element, textOf) => {
+		let timer = null;
+		const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
+
+		element.addEventListener('pointerdown', () => {
+			cancel();
+			timer = setTimeout(async () => {
+				timer = null;
+				const text = textOf();
+				if (!text) return;
+
+				const error = await copyText(text);
+				setMessage(error ? t('panel.copyFailed', { reason: error }) : t('panel.copied', { text }), error ? 'error' : '');
+			}, LONG_PRESS);
+		});
+
+		for (const event of ['pointerup', 'pointercancel', 'pointerleave', 'pointermove']) {
+			element.addEventListener(event, cancel);
+		}
+
+		// Without this the webview offers its own text-selection menu on top of ours.
+		element.addEventListener('contextmenu', (event) => event.preventDefault());
+	};
+
 	const setMessage = (text, kind) => {
 		const element = $('message');
 		element.textContent = text || '';
@@ -234,6 +294,7 @@
 			? `${next.latitude}, ${next.longitude}`
 			: t('panel.noCoordinates');
 		$('status').classList.toggle('empty', !next.hasCoordinates);
+		$('status').classList.toggle('copyable', next.hasCoordinates);
 
 		$('readout').hidden = !next.hasCoordinates;
 		$('readout-dms').textContent = next.dms || '';
@@ -256,6 +317,7 @@
 	const refreshInsertAvailability = async () => {
 		const available = await webviewApi.postMessage({ type: 'editorAvailable' });
 		$('button-insert').disabled = !available;
+		$('button-insert-map').disabled = !available;
 		$('insert-hint').textContent = available ? '' : t('panel.editorClosed');
 	};
 
@@ -293,6 +355,16 @@
 	$('button-insert').addEventListener('click', () => {
 		void sendAndRender({
 			type: 'insertLocation',
+			latitude: fields.latitude.value,
+			longitude: fields.longitude.value,
+			altitude: fields.altitude.value,
+		});
+	});
+
+	// The same position as a ```gpx block, which the note viewer draws as a small map.
+	$('button-insert-map').addEventListener('click', () => {
+		void sendAndRender({
+			type: 'insertMap',
 			latitude: fields.latitude.value,
 			longitude: fields.longitude.value,
 			altitude: fields.altitude.value,
@@ -488,6 +560,11 @@
 	});
 
 	// --- wiring -------------------------------------------------------------
+
+	// The readout, not the input fields: what is shown there is the note's stored position,
+	// and that is what one wants to hand to another app.
+	onLongPress($('status'), () => (state && state.hasCoordinates ? `${state.latitude}, ${state.longitude}` : ''));
+	onLongPress($('readout-dms'), () => (state && state.hasCoordinates ? state.dms : ''));
 
 	webviewApi.onMessage((event) => {
 		const message = event && event.message ? event.message : event;

@@ -5,6 +5,7 @@ import { parseLocation } from './location/parse';
 import { Coordinates, isEmpty, isValidLatitude, isValidLongitude } from './location/types';
 import { formatDecimal, formatPairDms, geoUri, osmUrl } from './location/format';
 import { defaultTemplate, placeholders, renderTemplate, stripMarkdownLinks, usesPlaceholder } from './location/template';
+import { gpxWaypointBlock } from './location/gpxBlock';
 import { probeNominatim, reverseGeocode } from './geocode';
 import { readNoteGeodata, readSelectedNoteGeodata, writeCoordinates } from './notes';
 import { createTranslate, Dictionary, dictionaryFor, englishDictionary, Translate } from './i18n';
@@ -186,6 +187,22 @@ const insertLocationText = async (coordinates: Coordinates) => {
 	return { text, richText, placeMissing, placeError: geocoded.error };
 };
 
+// The same position, but as a ```gpx block: the note viewer then draws a small map with a
+// pin instead of a line of numbers. Own lines around it, because insertText drops the text
+// wherever the cursor happens to be, and a fence in the middle of a line is not a fence.
+const insertMapBlock = async (coordinates: Coordinates) => {
+	const [codeView] = await joplin.settings.globalValues(['editor.codeView']);
+	if (codeView === false) throw new Error(t('message.mapNeedsMarkdown'));
+
+	const block = gpxWaypointBlock(coordinates, new Date());
+
+	try {
+		await joplin.commands.execute('insertText', `\n${block}\n`);
+	} catch (error) {
+		throw new Error(t('message.editorRefused'));
+	}
+};
+
 const requireNote = async (noteId: string) => {
 	if (noteId) return noteId;
 	const selected = await joplin.workspace.selectedNote();
@@ -340,6 +357,28 @@ joplin.plugins.register({
 					const note = richText ? t('message.insertedRichText') : '';
 					const missing = placeMissing ? t('message.placeMissing', { reason: placeError || '-' }) : '';
 					return await buildState(noteId, `${t('message.inserted', { text })}${note}${missing}`, 'ok');
+				}
+
+				case 'insertMap': {
+					const noteId = await requireNote(message.noteId);
+					if (!noteId) return emptyState(t('message.noNote'), 'error');
+
+					const { error, coordinates } = coordinatesFromFields(message);
+					if (error) return await buildState(noteId, error, 'error');
+					if (!coordinates || (!coordinates.latitude && !coordinates.longitude)) {
+						return await buildState(noteId, t('message.invalidLatitude'), 'error');
+					}
+
+					if (!await editorAvailable()) {
+						return await buildState(noteId, t('message.editorClosed'), 'error');
+					}
+
+					try {
+						await insertMapBlock(coordinates);
+					} catch (mapError) {
+						return await buildState(noteId, mapError.message, 'error');
+					}
+					return await buildState(noteId, t('message.insertedMap'), 'ok');
 				}
 
 				case 'getSettings':
