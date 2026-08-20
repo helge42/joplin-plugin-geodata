@@ -169,6 +169,11 @@ rather than leaving a hole in the note.
 - bulk view: "all notes in this notebook without geodata", for filling them in quickly
 - export a notebook's notes as GPX/GeoJSON (the route of a trip)
 
+**Deliberately not built:** collecting several positions in the panel and inserting them as
+one track. Recording a track is what a GPS app like OsmAnd is for, and the result can be
+attached to the note and drawn by the `gpx` block. A single position as a map is the part
+worth having, and it is built (0.9.4.6).
+
 ### Phase 4 — show GPX tracks ✅ (image export still open)
 
 ```gpx blocks are rendered as an OSM map in the note viewer.
