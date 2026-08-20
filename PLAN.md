@@ -364,6 +364,31 @@ upstream report.
 The page's own CSP is not the problem, by the way: `app.joplincloud.com` allows
 `img-src http://* https://*`, which is what the map tiles need.
 
+### The web app is cross-origin isolated, and that blocks the tiles
+
+The first guess for the black map in the web app was the container size (see below). It was
+not: the map was alive - zoom buttons, attribution, a draggable pin - only the tiles were
+missing, and Leaflet keeps unloaded tiles at `visibility: hidden`.
+
+The cause is `packages/app-mobile/web/serviceWorker.ts`, a fork of `coi-serviceworker`. It
+adds `Cross-Origin-Embedder-Policy` (and COOP) to every response so that the page becomes
+cross-origin isolated, which SQLite needs for `SharedArrayBuffer`. Under
+`COEP: require-corp`, a plain `<img>` from another site is blocked unless the response
+carries `Cross-Origin-Resource-Policy: cross-origin` - and `tile.openstreetmap.org` does not
+send it. It does send `Access-Control-Allow-Origin: *`, though, and a resource fetched as a
+CORS request satisfies the policy just as well. So both tile layers now use
+
+```js
+crossOrigin: 'anonymous'
+```
+
+which changes nothing on Android or the desktop and makes the tiles appear in the browser.
+The policy is inherited by the plugin's iframe, so nothing in the plugin could opt out of it.
+
+The tile-error hint had to be sharpened as well: it waited for more than four failures, and
+the whole world at zoom 1 is exactly four tiles - so the one case where every tile fails was
+the one case that stayed silent.
+
 ### A map has to survive a container that has no size yet
 
 On mobile — and therefore in the web app — the panel is shown inside a dialog
@@ -375,7 +400,9 @@ a container that has no layout box yet, that is 0×0, and the map then loads not
 and never measures again. What is left is an empty box, which in the dark theme reads as
 black. A single `setTimeout(invalidateSize, 0)` does not help — the box may appear much
 later. A `ResizeObserver` does, because it fires exactly when the element gets a box, and the
-view we wanted is re-applied at that moment.
+view we wanted is re-applied at that moment. This turned out not to be what made the web app
+map black - that was the embedder policy above - but the panel is built before it is shown on
+every mobile platform, so the observer stays.
 
 ### Tiles can go missing while the app is in the background
 

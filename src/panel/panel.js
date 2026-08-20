@@ -101,12 +101,20 @@
 		tiles = window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
 			maxZoom: 19,
 			attribution: '&copy; OpenStreetMap',
+			// The web app makes itself cross-origin isolated (a service worker adds
+			// Cross-Origin-Embedder-Policy so that SQLite can use SharedArrayBuffer). Under
+			// that policy an ordinary <img> from another site is blocked unless the response
+			// says it may be embedded - and the tile server does not. Fetching the tiles as a
+			// CORS request satisfies the policy instead, because the server does send
+			// "Access-Control-Allow-Origin: *". Everywhere else this changes nothing.
+			crossOrigin: 'anonymous',
 		});
 		tiles.on('tileerror', () => {
 			tileErrors += 1;
-			// A single failure is normal at the edges of the viewport; a run of them means
-			// there is no network. Editing keeps working either way.
-			if (tileErrors > 4) setMapHint(t('panel.noTiles'));
+			// A single failure is normal at the edges of the viewport; a run of them means the
+			// tiles are not coming. Editing keeps working either way. Three, because the whole
+			// world at zoom 1 is only four tiles.
+			if (tileErrors >= 3) setMapHint(t('panel.noTiles'));
 		});
 		tiles.on('tileload', () => { tileErrors = 0; setMapHint(''); });
 		tiles.addTo(map);
@@ -401,8 +409,9 @@
 
 	// --- diagnostics (Phase 0) ----------------------------------------------
 
-	const probeImage = (url) => new Promise((resolve) => {
+	const probeImage = (url, cors) => new Promise((resolve) => {
 		const image = new Image();
+		if (cors) image.crossOrigin = 'anonymous';
 		const timer = setTimeout(() => resolve('timed out'), 8000);
 		image.onload = () => { clearTimeout(timer); resolve(`ok (${image.width}x${image.height})`); };
 		image.onerror = () => { clearTimeout(timer); resolve('blocked/failed'); };
@@ -444,7 +453,11 @@
 			`frame origin: ${window.origin || '(none)'}`,
 			`location request: ${await probeGeolocation()}`,
 			`isSecureContext: ${window.isSecureContext}`,
-			`OSM tile: ${await probeImage('https://tile.openstreetmap.org/0/0/0.png')}`,
+			// The two together say whether an embedder policy is in the way: a plain image is
+			// blocked under COEP, the same image fetched with CORS is not.
+			`OSM tile (plain img): ${await probeImage('https://tile.openstreetmap.org/0/0/0.png', false)}`,
+			`OSM tile (CORS img): ${await probeImage('https://tile.openstreetmap.org/1/0/0.png', true)}`,
+			`crossOriginIsolated: ${window.crossOriginIsolated}`,
 		];
 
 		try {

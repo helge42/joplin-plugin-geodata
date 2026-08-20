@@ -242,8 +242,12 @@
 		const tiles = window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
 			maxZoom: 19,
 			attribution: '&copy; OpenStreetMap',
+			// The web app is cross-origin isolated, and under that policy a plain <img> from
+			// another site is blocked unless the response allows being embedded - which the
+			// tile server does not say. As a CORS request the tiles are allowed, because the
+			// server does send "Access-Control-Allow-Origin: *".
+			crossOrigin: 'anonymous',
 		}).addTo(map);
-		liveMaps.push({ element: mapElement, map, tiles });
 
 		const lines = segments.map(segment => {
 			return window.L.polyline(downsample(segment).map(point => [point.lat, point.lon]), {
@@ -258,7 +262,9 @@
 		window.L.circleMarker([first.lat, first.lon], { radius: 6, color: '#2a7d2e', fillOpacity: 1 }).addTo(map);
 		window.L.circleMarker([last.lat, last.lon], { radius: 6, color: '#c04949', fillOpacity: 1 }).addTo(map);
 
-		map.fitBounds(window.L.featureGroup(lines).getBounds(), { padding: [12, 12] });
+		const bounds = window.L.featureGroup(lines).getBounds();
+		map.fitBounds(bounds, { padding: [12, 12] });
+		liveMaps.push({ element: mapElement, map, tiles, bounds });
 		renderStats(container.querySelector('.geodata-gpx-stats'), trackStats(segments));
 		addStartPointLink(container, first);
 		addReloadLink(container, mapElement);
@@ -321,6 +327,9 @@
 			const entry = liveMaps.find(item => item.element === mapElement);
 			if (entry) {
 				entry.map.invalidateSize();
+				// Back to the whole track: after panning around, finding the way back by hand
+				// is fiddly on a phone, and this is the button one reaches for anyway.
+				entry.map.fitBounds(entry.bounds, { padding: [12, 12] });
 				entry.tiles.redraw();
 			}
 			return false;
